@@ -203,13 +203,14 @@ class ProductManager:
                 # Get values
                 name = entries[0].get().strip()
                 model = entries[1].get().strip()
-                color = entries[2].get().strip() or None
+                color = entries[2].get().strip() or ""
 
                 # Validate required fields
                 if not name or not model:
                     messagebox.showerror("Error", "Product Name and Model are required!")
                     return
 
+                # Stock
                 try:
                     stock = int(entries[3].get())
                     if stock < 0:
@@ -218,50 +219,57 @@ class ProductManager:
                     messagebox.showerror("Error", "Stock quantity must be a positive number!")
                     return
 
-                price = None
-                if entries[4].get():
-                    try:
-                        price = float(entries[4].get())
-                        if price < 0:
-                            raise ValueError
-                    except:
-                        messagebox.showerror("Error", "Price must be a valid positive number!")
-                        return
+                # Price (must be > 0 for API)
+                try:
+                    price = float(entries[4].get())
+                    if price <= 0:
+                        raise ValueError
+                except:
+                    messagebox.showerror("Error", "Price must be a valid number greater than 0!")
+                    return
 
-                location = entries[5].get().strip() or 'Warehouse'
+                # Location
+                location = entries[5].get().strip() or "Warehouse"
 
+                # Min stock
                 try:
                     min_stock = int(entries[6].get())
                     if min_stock < 0:
                         raise ValueError
                 except:
-                    messagebox.showerror("Error", "Minimum stock level must be a positive number!")
+                    messagebox.showerror("Error", "Minimum stock must be a positive number!")
                     return
 
-                description = entries[7].get("1.0", "end-1c").strip() or None
+                # Prepare payload (ONLY fields API expects)
+                payload = {
+                    "productname": name,
+                    "model": model,
+                    "color": color,
+                    "stock_quantity": stock,
+                    "price_usd": price,
+                    "location": location,
+                    "min_stock": min_stock
+                }
 
-                weight = None
-                if entries[8].get():
-                    try:
-                        weight = float(entries[8].get())
-                        if weight < 0:
-                            raise ValueError
-                    except:
-                        messagebox.showerror("Error", "Weight must be a valid positive number!")
-                        return
+                # POST to API
+                response = requests.post(
+                    "http://127.0.0.1:8000/products",
+                    json=payload,
+                    timeout=5
+                )
 
-                dimensions = entries[9].get().strip() or None
+                if response.ok:
+                    messagebox.showinfo("Success", f"Product '{name}' added successfully!")
+                    dialog.destroy()
+                    self.refresh_products()
+                else:
+                    messagebox.showerror("Error", f"API Error:\n{response.text}")
 
-                # Add product using DatabaseManager
-                self.db.add_product(name, model, color, stock, price, location, min_stock, description, weight,
-                                    dimensions)
-
-                messagebox.showinfo("Success", f"Product '{name}' added successfully!")
-                dialog.destroy()
-                self.refresh_products()
+            except requests.exceptions.RequestException as e:
+                messagebox.showerror("Error", f"Connection failed:\n{str(e)}")
 
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to add product: {str(e)}")
+                messagebox.showerror("Error", f"Unexpected error:\n{str(e)}")
 
         # Buttons
         button_frame = tk.Frame(dialog)
