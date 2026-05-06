@@ -128,28 +128,61 @@ class ProductManager:
             self.refresh_callback()
 
     def search_products(self, event=None):
-        """Search products by name or model"""
-        search_term = self.search_entry.get().lower()
+        """Search products locally (no API search endpoint used)"""
 
+
+        search_term = self.search_entry.get().strip().lower()
+
+        # clear table
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        all_products = self.db.get_all_products()
+        try:
+            response = requests.get("http://127.0.0.1:8000/products", timeout=5)
+            response.raise_for_status()
+            all_products = response.json()
+
+        except Exception as e:
+            print("API Error:", e)
+            all_products = []
 
         for product in all_products:
-            if search_term in product[1].lower() or search_term in product[2].lower():
-                price = f"${product[5]:.2f}" if product[5] else "N/A"
-                values = (product[0], product[1], product[2], product[3] or 'N/A', product[4], price, product[6],
-                          product[7])
+            name = product.get("productname", "").lower()
+            model = product.get("model", "").lower()
 
-                if product[4] == 0:
-                    tag = 'critical'
-                elif product[4] < product[7]:
-                    tag = 'low'
-                else:
-                    tag = 'normal'
+            # LOCAL FILTER ONLY
+            if search_term and search_term not in name and search_term not in model:
+                continue
 
-                self.tree.insert('', 'end', values=values, tags=(tag,))
+            product_id = product.get("id")
+            color = product.get("color", "N/A")
+            stock = product.get("stock_quantity", 0)
+            price_val = product.get("price_usd")
+            location = product.get("location", "")
+            min_stock = product.get("min_stock", 0)
+
+            price = f"${price_val:.2f}" if price_val else "N/A"
+
+            values = (
+                product_id,
+                product.get("productname"),
+                product.get("model"),
+                color,
+                stock,
+                price,
+                location,
+                min_stock
+            )
+
+            # stock status
+            if stock == 0:
+                tag = 'critical'
+            elif stock < min_stock:
+                tag = 'low'
+            else:
+                tag = 'normal'
+
+            self.tree.insert('', 'end', values=values, tags=(tag,))
 
     def add_product(self):
         """Add new product dialog"""
@@ -281,7 +314,10 @@ class ProductManager:
                   bg="gray", fg="white", padx=20).pack(side="left", padx=5)
 
     def edit_product(self):
-        """Edit selected product"""
+        import requests
+        from tkinter import messagebox
+        import tkinter as tk
+
         selected = self.tree.selection()
         if not selected:
             messagebox.showwarning("No Selection", "Please select a product to edit")
@@ -289,14 +325,20 @@ class ProductManager:
 
         product_id = self.tree.item(selected[0])['values'][0]
 
-        # Get product details
-        product = self.db.get_product_by_id(product_id)
+        # Fetch product from API
+        try:
+            response = requests.get(f"http://127.0.0.1:8000/products/{product_id}", timeout=5)
+            response.raise_for_status()
+            product = response.json()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to fetch product:\n{str(e)}")
+            return
 
         if not product:
             return
 
         dialog = tk.Toplevel(self.parent)
-        dialog.title(f"Edit Product - {product[1]}")
+        dialog.title(f"Edit Product - {product.get('productname')}")
         dialog.geometry("600x550")
         dialog.resizable(False, False)
 
@@ -306,7 +348,6 @@ class ProductManager:
         form = tk.Frame(dialog, padx=20, pady=20)
         form.pack(fill="both", expand=True)
 
-        # Form fields with current values
         labels = [
             'Product Name:', 'Model:', 'Color:', 'Stock Quantity:',
             'Price (USD):', 'Location:', 'Minimum Stock Level:',
@@ -324,35 +365,25 @@ class ProductManager:
             if label == 'Description:':
                 entry = tk.Text(frame, height=3, width=40)
                 entry.pack(side="left", padx=5)
-                if product[8]:
-                    entry.insert("1.0", product[8])
             else:
                 entry = tk.Entry(frame, width=40)
                 entry.pack(side="left", padx=5)
 
-                # Set current values (index mapping)
-                if i == 0:  # Name
-                    entry.insert(0, product[1])
-                elif i == 1:  # Model
-                    entry.insert(0, product[2])
-                elif i == 2:  # Color
-                    if product[3]:
-                        entry.insert(0, product[3])
-                elif i == 3:  # Stock
-                    entry.insert(0, product[4])
-                elif i == 4:  # Price
-                    if product[5]:
-                        entry.insert(0, str(product[5]))
-                elif i == 5:  # Location
-                    entry.insert(0, product[6])
-                elif i == 6:  # Min stock
-                    entry.insert(0, product[7])
-                elif i == 8:  # Weight
-                    if product[9]:
-                        entry.insert(0, str(product[9]))
-                elif i == 9:  # Dimensions
-                    if product[10]:
-                        entry.insert(0, product[10])
+                # Fill values from API (DICT ACCESS)
+                if i == 0:
+                    entry.insert(0, product.get("productname", ""))
+                elif i == 1:
+                    entry.insert(0, product.get("model", ""))
+                elif i == 2:
+                    entry.insert(0, product.get("color", ""))
+                elif i == 3:
+                    entry.insert(0, product.get("stock_quantity", 0))
+                elif i == 4:
+                    entry.insert(0, product.get("price_usd", 0))
+                elif i == 5:
+                    entry.insert(0, product.get("location", ""))
+                elif i == 6:
+                    entry.insert(0, product.get("min_stock", 0))
 
             entries.append(entry)
 
@@ -365,8 +396,9 @@ class ProductManager:
                     messagebox.showerror("Error", "Product Name and Model are required!")
                     return
 
-                color = entries[2].get().strip() or None
+                color = entries[2].get().strip() or ""
 
+                # Stock
                 try:
                     stock = int(entries[3].get())
                     if stock < 0:
@@ -375,18 +407,18 @@ class ProductManager:
                     messagebox.showerror("Error", "Stock quantity must be a positive number!")
                     return
 
-                price = None
-                if entries[4].get():
-                    try:
-                        price = float(entries[4].get())
-                        if price < 0:
-                            raise ValueError
-                    except:
-                        messagebox.showerror("Error", "Price must be a valid positive number!")
-                        return
+                # Price
+                try:
+                    price = float(entries[4].get())
+                    if price <= 0:
+                        raise ValueError
+                except:
+                    messagebox.showerror("Error", "Price must be a valid positive number!")
+                    return
 
-                location = entries[5].get().strip() or 'Warehouse'
+                location = entries[5].get().strip() or "Warehouse"
 
+                # Min stock
                 try:
                     min_stock = int(entries[6].get())
                     if min_stock < 0:
@@ -395,30 +427,36 @@ class ProductManager:
                     messagebox.showerror("Error", "Minimum stock level must be a positive number!")
                     return
 
-                description = entries[7].get("1.0", "end-1c").strip() or None
+                # Get product ID (important)
+                product_id = self.tree.item(self.tree.selection()[0])['values'][0]
 
-                weight = None
-                if entries[8].get():
-                    try:
-                        weight = float(entries[8].get())
-                        if weight < 0:
-                            raise ValueError
-                    except:
-                        messagebox.showerror("Error", "Weight must be a valid positive number!")
-                        return
+                # Payload (ONLY backend fields)
+                payload = {
+                    "productname": name,
+                    "model": model,
+                    "color": color,
+                    "stock_quantity": stock,
+                    "price_usd": price,
+                    "location": location,
+                    "min_stock": min_stock
+                }
 
-                dimensions = entries[9].get().strip() or None
+                # PUT request
+                response = requests.put(
+                    f"http://127.0.0.1:8000/products/{product_id}",
+                    json=payload,
+                    timeout=5
+                )
 
-                # Update product
-                self.db.update_product(product_id, name, model, color, stock, price, location, min_stock, description,
-                                       weight, dimensions)
-
-                messagebox.showinfo("Success", f"Product '{name}' updated successfully!")
-                dialog.destroy()
-                self.refresh_products()
+                if response.ok:
+                    messagebox.showinfo("Success", f"Product '{name}' updated successfully!")
+                    dialog.destroy()
+                    self.refresh_products()
+                else:
+                    messagebox.showerror("Error", f"API Error:\n{response.text}")
 
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to update product: {str(e)}")
+                messagebox.showerror("Error", f"Failed to update product:\n{str(e)}")
 
         button_frame = tk.Frame(dialog)
         button_frame.pack(pady=10)
@@ -438,26 +476,29 @@ class ProductManager:
         product_id = self.tree.item(selected[0])['values'][0]
         product_name = self.tree.item(selected[0])['values'][1]
 
-        # Check if product has any orders
-        conn = sqlite3.connect('warehouse.db', timeout=20)
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM orders WHERE product_id = ? AND status != 'done'", (product_id,))
-        active_orders = cursor.fetchone()[0]
-        conn.close()
+        # Optional: confirm delete
+        confirm = messagebox.askyesno(
+            "Confirm Delete",
+            f"Are you sure you want to delete '{product_name}'?"
+        )
 
-        if active_orders > 0:
-            messagebox.showwarning("Cannot Delete",
-                                   f"Cannot delete '{product_name}' because it has {active_orders} active orders!")
+        if not confirm:
             return
 
-        if messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete '{product_name}'?"):
-            try:
-                self.db.delete_product(product_id)
+        try:
+            response = requests.delete(
+                f"http://127.0.0.1:8000/products/{product_id}",
+                timeout=5
+            )
+
+            if response.ok:
                 messagebox.showinfo("Success", f"Product '{product_name}' deleted successfully!")
                 self.refresh_products()
+            else:
+                messagebox.showerror("Error", f"API Error:\n{response.text}")
 
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to delete product: {str(e)}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to delete product:\n{str(e)}")
 
 
 if __name__ == "__main__":
