@@ -1,7 +1,11 @@
 import tkinter as tk
+from random import sample
 from tkinter import ttk, messagebox
 import sqlite3
 from datetime import datetime
+
+import requests
+
 from database_setup import DatabaseManager, setup_database
 
 
@@ -72,18 +76,43 @@ class ProductManager:
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        products = self.db.get_all_products()
+        try:
+            response = requests.get("http://127.0.0.1:8000/products")
+            response.raise_for_status()
+            products = response.json()
+        except Exception as e:
+            print("Error fetching products:", e)
+            products = []
 
         for product in products:
-            # Format price
-            price = f"${product[5]:.2f}" if product[5] else "N/A"
-            values = (product[0], product[1], product[2], product[3] or 'N/A', product[4], price, product[6],
-                      product[7])
+            # Extract values from JSON (dict)
+            product_id = product.get("id")
+            name = product.get("productname")
+            model = product.get("model")
+            color = product.get("color", "N/A")
+            stock = product.get("stock_quantity", 0)
+            price_val = product.get("price_usd")
+            location = product.get("location")
+            min_stock = product.get("min_stock", 0)
 
-            # Color coding based on stock level
-            if product[4] == 0:
+            # Format price
+            price = f"${price_val:.2f}" if price_val else "N/A"
+
+            values = (
+                product_id,
+                name,
+                model,
+                color,
+                stock,
+                price,
+                location,
+                min_stock
+            )
+
+            # Color coding
+            if stock == 0:
                 tag = 'critical'
-            elif product[4] < product[7]:
+            elif stock < min_stock:
                 tag = 'low'
             else:
                 tag = 'normal'
@@ -95,7 +124,6 @@ class ProductManager:
         self.tree.tag_configure('low', background='yellow')
         self.tree.tag_configure('normal', background='white')
 
-        # Call refresh callback if provided
         if self.refresh_callback:
             self.refresh_callback()
 
