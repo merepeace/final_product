@@ -22,6 +22,13 @@ def create(product: schema.ProductCreate, db: Session = Depends(get_db)):
 def get_all(db: Session = Depends(get_db)):
     return productController.get_all_products(db)
 
+@router.get("/{product_id}", response_model=schema.ProductResponse)
+def get_product(product_id: str, db: Session = Depends(get_db)):
+    product = productController.get_product(db, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
+
 @router.put("/{product_id}", response_model=schema.ProductResponse)
 def update(product_id: str, product: schema.ProductCreate, db: Session = Depends(get_db)):
     updated = productController.update_product(db, product_id, product)
