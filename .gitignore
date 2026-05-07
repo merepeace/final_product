@@ -1,0 +1,27 @@
+# Editors / IDEs
+.idea/
+.vscode/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Node / frontend build artifacts
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Database (runtime)
+*.db
+*.sqlite
+*.sqlite3
+
+# Backups / scratch
+*.backup.txt
+*.bak
+
+# OS
+.DS_Store
+Thumbs.db

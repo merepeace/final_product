@@ -1,10 +1,12 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext, simpledialog
-import sqlite3
 from datetime import datetime
-import time
-from database_setup import DatabaseManager, setup_database
+import requests
+from api_client import get_zones, get_products
+
 from product_manager import ProductManager
+
+BASE_URL = "http://127.0.0.1:8000"
 
 
 class OrderManagementSystem:
@@ -13,123 +15,108 @@ class OrderManagementSystem:
         self.root.title("Order Management System - Complete")
         self.root.geometry("1400x800")
 
-        # Initialize database manager
-        self.db = DatabaseManager()
-
-        # Create notebook for tabs
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill="both", expand=True, padx=5, pady=5)
 
-        # Create Orders Tab
         self.orders_frame = tk.Frame(self.notebook)
         self.notebook.add(self.orders_frame, text="📋 Orders")
 
-        # Create Products Tab
         self.products_frame = tk.Frame(self.notebook)
         self.notebook.add(self.products_frame, text="📦 Products")
 
-        # Setup orders UI first (this creates product_combo)
         self.setup_orders_ui()
 
-        # Initialize product manager after UI is created
         self.product_manager = ProductManager(self.products_frame, lambda: self.refresh_product_dropdown())
 
-        # Flag to prevent refresh during selection
         self.is_refreshing = False
         self.selected_order_id = None
 
-        # Refresh orders periodically
         self.refresh_orders()
 
         print("✅ Order Management System Started")
 
     def setup_orders_ui(self):
         """Setup the orders management interface"""
-        # Top frame for order creation
         top_frame = tk.LabelFrame(self.orders_frame, text="Create New Order", padx=10, pady=10,
                                   font=('Arial', 10, 'bold'))
         top_frame.pack(fill="x", padx=10, pady=5)
 
-        # Order details frame
         details_frame = tk.Frame(top_frame)
         details_frame.pack(fill="x", pady=5)
 
-        # Row 1: Order Name
+        # Row 0: Order Name
         tk.Label(details_frame, text="Order Name:", width=15, anchor='w').grid(row=0, column=0, padx=5, pady=5)
         self.order_name_entry = tk.Entry(details_frame, width=30)
         self.order_name_entry.grid(row=0, column=1, padx=5, pady=5)
 
-        # Row 2: Product Selection
+        # Row 1: Product Selection
         tk.Label(details_frame, text="Product:", width=15, anchor='w').grid(row=1, column=0, padx=5, pady=5)
         self.product_combo = ttk.Combobox(details_frame, width=50)
         self.product_combo.grid(row=1, column=1, padx=5, pady=5)
         self.product_combo.bind('<<ComboboxSelected>>', self.on_product_select)
 
-        # Product info display
         self.product_info_label = tk.Label(details_frame, text="", fg="blue", font=('Arial', 9))
         self.product_info_label.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
 
-        # Row 3: Quantity and Priority
+        # Row 3: Quantity
         tk.Label(details_frame, text="Quantity:", width=15, anchor='w').grid(row=3, column=0, padx=5, pady=5)
         self.quantity_entry = tk.Entry(details_frame, width=10)
         self.quantity_entry.insert(0, "1")
         self.quantity_entry.grid(row=3, column=1, sticky='w', padx=5, pady=5)
 
+        # Row 4: Priority
         tk.Label(details_frame, text="Priority (1-5):", width=15, anchor='w').grid(row=4, column=0, padx=5, pady=5)
         self.priority_combo = ttk.Combobox(details_frame, values=[1, 2, 3, 4, 5], width=8)
         self.priority_combo.set(3)
         self.priority_combo.grid(row=4, column=1, sticky='w', padx=5, pady=5)
 
-        # Row 5: Locations
+        # Row 5-6: Locations — fetch zones once
+        zone_names = [z["name"] for z in get_zones()]
+
         tk.Label(details_frame, text="From Location:", width=15, anchor='w').grid(row=5, column=0, padx=5, pady=5)
-        self.from_combo = ttk.Combobox(details_frame, values=self.db.get_valid_zones('source'), width=20)
-        self.from_combo.set('Warehouse')
+        self.from_combo = ttk.Combobox(details_frame, values=zone_names, width=20)
+        if zone_names:
+            self.from_combo.set(zone_names[0])
         self.from_combo.grid(row=5, column=1, sticky='w', padx=5, pady=5)
 
         tk.Label(details_frame, text="To Location:", width=15, anchor='w').grid(row=6, column=0, padx=5, pady=5)
-        self.to_combo = ttk.Combobox(details_frame, values=self.db.get_valid_zones('destination'), width=20)
-        self.to_combo.set('Zone A')
+        self.to_combo = ttk.Combobox(details_frame, values=zone_names, width=20)
+        if zone_names:
+            self.to_combo.set(zone_names[0])
         self.to_combo.grid(row=6, column=1, sticky='w', padx=5, pady=5)
 
-        # Buttons frame
+        # Buttons
         buttons_frame = tk.Frame(top_frame)
         buttons_frame.pack(pady=10)
 
         tk.Button(buttons_frame, text="🚀 Create Order", command=self.create_order,
                   bg="green", fg="white", font=('Arial', 10, 'bold'), padx=20).pack(side="left", padx=5)
-
         tk.Button(buttons_frame, text="📦 Products", command=self.switch_to_products,
                   bg="blue", fg="white", font=('Arial', 10, 'bold'), padx=20).pack(side="left", padx=5)
 
-        # Orders list frame
+        # Orders list
         list_frame = tk.LabelFrame(self.orders_frame, text="Current Orders", padx=10, pady=10,
                                    font=('Arial', 10, 'bold'))
         list_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Treeview for orders
         columns = ('ID', 'Order Name', 'Product', 'Qty', 'Status', 'AGV', 'Priority', 'From', 'To', 'Order Time')
         self.tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=15)
 
-        # Configure headings
-        headings = ['ID', 'Order Name', 'Product', 'Qty', 'Status', 'Assigned AGV', 'Priority', 'From', 'To',
-                    'Order Time']
-        widths = [50, 150, 150, 60, 100, 100, 60, 100, 100, 150]
+        headings = ['ID', 'Order Name', 'Product', 'Qty', 'Status', 'Assigned AGV', 'Priority', 'From', 'To', 'Order Time']
+        widths   = [50,   150,          150,       60,    100,      100,            60,         100,    100,  150]
 
-        for i, (col, heading, width) in enumerate(zip(columns, headings, widths)):
+        for col, heading, width in zip(columns, headings, widths):
             self.tree.heading(col, text=heading)
             self.tree.column(col, width=width)
 
-        # Scrollbar
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
-
         self.tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Bind selection event
         self.tree.bind('<<TreeviewSelect>>', self.on_order_select)
 
-        # Action buttons frame
+        # Action buttons
         action_frame = tk.Frame(self.orders_frame)
         action_frame.pack(fill="x", padx=10, pady=5)
 
@@ -140,26 +127,23 @@ class OrderManagementSystem:
         tk.Button(action_frame, text="❌ Cancel Order", command=self.cancel_order,
                   bg="red", fg="white").pack(side="left", padx=5)
 
-        # Logs frame
+        # Logs
         logs_frame = tk.LabelFrame(self.orders_frame, text="System Logs", padx=10, pady=10)
         logs_frame.pack(fill="x", padx=10, pady=5)
 
         self.logs_text = scrolledtext.ScrolledText(logs_frame, height=8, width=80)
         self.logs_text.pack(fill="both", expand=True)
 
-        # Initialize products data dictionary
+        # Products data cache
         self.products_data = {}
         self.selected_product_id = None
 
-        # Load initial product dropdown
         self.refresh_product_dropdown()
 
     def switch_to_products(self):
-        """Switch to products tab"""
         self.notebook.select(self.products_frame)
 
     def on_order_select(self, event):
-        """Handle order selection - preserve selection"""
         try:
             selected = self.tree.selection()
             if selected:
@@ -171,53 +155,47 @@ class OrderManagementSystem:
             self.selected_order_id = None
 
     def refresh_product_dropdown(self):
-        """Refresh product dropdown with current products"""
+        """Fetch products from API and populate the dropdown"""
         try:
-            products = self.db.get_all_products()
-            if products:
-                product_list = [f"{p[1]} {p[2]} (Stock: {p[4]})" for p in products]
+            products = get_products()
+            if not products:
+                return
 
-                # Update combobox values
-                if hasattr(self, 'product_combo'):
-                    self.product_combo['values'] = product_list
+            # Build name → product dict (was recursively calling itself before — fixed)
+            self.products_data = {p["productname"]: p for p in products}
 
-                    # Update products data dictionary
-                    self.products_data = {}
-                    for p in products:
-                        key = f"{p[1]} {p[2]} (Stock: {p[4]})"
-                        self.products_data[key] = p
+            self.product_combo["values"] = list(self.products_data.keys())
+
         except Exception as e:
-            print(f"Error refreshing product dropdown: {e}")
+            print(f"Product refresh error: {e}")
 
     def on_product_select(self, event):
-        """Handle product selection"""
         try:
             selected = self.product_combo.get()
-            if selected and selected in self.products_data:
-                product = self.products_data[selected]
-                self.selected_product_id = product[0]
-                info = f"📦 {product[1]} {product[2]} | Color: {product[3] or 'N/A'} | Stock: {product[4]} | Price: ${product[5]:.2f}"
-                if product[9]:  # Weight
-                    info += f" | Weight: {product[9]}kg"
+            product = self.products_data.get(selected)
+
+            if product:
+                self.selected_product_id = product["id"]
+                stock = int(product.get("stock_quantity", 0))
+                price = product.get("price_usd", 0)
+                info = (f"📦 {product['productname']} | Stock: {stock} | Price: ${price}")
                 self.product_info_label.config(text=info)
             else:
-                self.product_info_label.config(text="")
                 self.selected_product_id = None
+                self.product_info_label.config(text="")
+
         except Exception as e:
-            print(f"Error in product selection: {e}")
-            self.selected_product_id = None
+            print(f"Product select error: {e}")
 
     def create_order(self):
-        """Create a new order"""
-        conn = None
+        """Create order via API"""
         try:
-            # Validate inputs
             order_name = self.order_name_entry.get().strip()
             if not order_name:
                 messagebox.showwarning("Validation Error", "Order name is required!")
                 return
 
-            if not hasattr(self, 'selected_product_id') or self.selected_product_id is None:
+            if not self.selected_product_id:
                 messagebox.showwarning("Validation Error", "Please select a product!")
                 return
 
@@ -226,362 +204,228 @@ class OrderManagementSystem:
                 if quantity <= 0:
                     raise ValueError
             except ValueError:
-                messagebox.showwarning("Validation Error", "Quantity must be a positive number!")
+                messagebox.showwarning("Validation Error", "Quantity must be a positive integer!")
                 return
 
-            # Check stock
-            product = self.db.get_product_by_id(self.selected_product_id)
+            from_loc = self.from_combo.get()
+            to_loc   = self.to_combo.get()
+
+            zone_names = [z["name"] for z in get_zones()]
+
+            if from_loc not in zone_names or to_loc not in zone_names:
+                messagebox.showerror("Invalid Location", "Invalid zone selected!")
+                return
+
+            if from_loc == to_loc:
+                messagebox.showerror("Invalid Locations", "From and To locations cannot be the same!")
+                return
+
+            # Find product in cache
+            product = next((p for p in self.products_data.values() if p["id"] == self.selected_product_id), None)
             if not product:
                 messagebox.showerror("Error", "Product not found!")
                 return
 
-            if quantity > product[4]:
-                messagebox.showerror("Insufficient Stock",
-                                     f"Only {product[4]} units available in stock!\nRequested: {quantity}")
+            stock = int(product.get("stock_quantity", 0))
+            if quantity > stock:
+                messagebox.showerror("Insufficient Stock", f"Only {stock} units available!")
                 return
 
-            priority = int(self.priority_combo.get())
-            from_loc = self.from_combo.get()
-            to_loc = self.to_combo.get()
+            payload = {
+                "order_name":    order_name,
+                "product":       product["productname"],
+                "qty":           quantity,
+                "status":        "Pending",
+                "agv":           "AGV-01",
+                "priority":      int(self.priority_combo.get()),
+                "from_location": from_loc,
+                "to_location":   to_loc,
+            }
 
-            # Validate locations
-            valid_sources = self.db.get_valid_zones('source')
-            valid_destinations = self.db.get_valid_zones('destination')
+            response = requests.post(f"{BASE_URL}/orders", json=payload)
 
-            if from_loc not in valid_sources:
-                messagebox.showerror("Invalid Location", f"Invalid source location! Valid: {', '.join(valid_sources)}")
-                return
-
-            if to_loc not in valid_destinations:
-                messagebox.showerror("Invalid Location",
-                                     f"Invalid destination location! Valid: {', '.join(valid_destinations)}")
-                return
-
-            if from_loc == to_loc:
-                messagebox.showerror("Invalid Locations", "Source and destination cannot be the same!")
-                return
-
-            # Create order with retry logic
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    conn = sqlite3.connect('warehouse.db', timeout=30, isolation_level=None)
-                    conn.execute('PRAGMA journal_mode=WAL')
-                    cursor = conn.cursor()
-
-                    now = datetime.now()
-                    order_time = now.strftime("%Y-%m-%d %H:%M:%S")
-                    timestamp = now.isoformat()
-                    product_name = f"{product[1]} {product[2]}"
-
-                    cursor.execute('''
-                                   INSERT INTO orders (order_name, timestamp, order_time, status, product_id,
-                                                       product_name,
-                                                       quantity, priority, from_location, to_location)
-                                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                   ''', (order_name, timestamp, order_time, 'pending', self.selected_product_id,
-                                         product_name, quantity, priority, from_loc, to_loc))
-
-                    order_id = cursor.lastrowid
-                    conn.commit()
-
-                    # Update stock using DatabaseManager
-                    self.db.update_stock(self.selected_product_id, -quantity)
-
-                    # Clear inputs
-                    self.order_name_entry.delete(0, tk.END)
-                    self.quantity_entry.delete(0, tk.END)
-                    self.quantity_entry.insert(0, "1")
-                    self.product_combo.set('')
-                    self.product_info_label.config(text='')
-                    self.selected_product_id = None
-
-                    # Refresh displays
-                    self.refresh_orders()
-                    if hasattr(self, 'product_manager'):
-                        self.product_manager.refresh_products()
-                    self.refresh_product_dropdown()
-
-                    messagebox.showinfo("Success",
-                                        f"✅ Order #{order_id} created successfully!\nStock updated to {product[4] - quantity}")
-                    return
-
-                except sqlite3.OperationalError as e:
-                    print(f"Database error (attempt {attempt + 1}/{max_retries}): {e}")
-                    if conn:
-                        conn.close()
-                    time.sleep(1)
-                except Exception as e:
-                    if conn:
-                        conn.close()
-                    raise e
-                finally:
-                    if conn:
-                        conn.close()
-
-            messagebox.showerror("Error", "Failed to create order after multiple attempts.")
+            if response.status_code in (200, 201):
+                self.clear_form()
+                self.refresh_orders()
+                messagebox.showinfo("Success", "Order created successfully!")
+            else:
+                messagebox.showerror("API Error", response.text)
 
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to create order: {str(e)}")
+            messagebox.showerror("Error", str(e))
+
+    def clear_form(self):
+        """Reset the create-order form"""
+        self.order_name_entry.delete(0, tk.END)
+        self.product_combo.set("")
+        self.product_info_label.config(text="")
+        self.quantity_entry.delete(0, tk.END)
+        self.quantity_entry.insert(0, "1")
+        self.priority_combo.set(3)
+        self.selected_product_id = None
 
     def confirm_delivery(self):
-        """Confirm delivery of an order"""
+        """Confirm delivery of selected order via API"""
         if not self.selected_order_id:
-            messagebox.showwarning("No Selection", "Please select an order to confirm delivery")
+            messagebox.showwarning("No Selection", "Please select an order to confirm delivery.")
             return
 
-        # Get the current status of the selected order
-        conn = None
+        # Fetch current order status from API
         try:
-            conn = sqlite3.connect('warehouse.db', timeout=30)
-            cursor = conn.cursor()
-            cursor.execute("SELECT status FROM orders WHERE id = ?", (self.selected_order_id,))
-            result = cursor.fetchone()
-            if result:
-                status = result[0]
-            else:
-                messagebox.showerror("Error", "Order not found!")
-                return
-            conn.close()
+            response = requests.get(f"{BASE_URL}/orders/{self.selected_order_id}")
+            response.raise_for_status()
+            order = response.json()
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to get order status: {str(e)}")
-            return
-        finally:
-            if conn:
-                conn.close()
-
-        if status != 'delivering':
-            messagebox.showwarning("Cannot Confirm",
-                                   f"Order {self.selected_order_id} is '{status}'. Only 'delivering' orders can be confirmed!")
+            messagebox.showerror("Error", f"Failed to fetch order: {e}")
             return
 
-        # Get operator name
+        if order.get("status", "").lower() != "delivering":
+            messagebox.showwarning(
+                "Cannot Confirm",
+                f"Order {self.selected_order_id} is '{order.get('status')}'. "
+                "Only 'delivering' orders can be confirmed."
+            )
+            return
+
         operator = simpledialog.askstring("Confirm Delivery", "Enter your name for confirmation:")
         if not operator:
             return
 
         try:
-            conn = sqlite3.connect('warehouse.db', timeout=30, isolation_level=None)
-            conn.execute('PRAGMA journal_mode=WAL')
-            cursor = conn.cursor()
+            payload = {
+                "confirmed_by":         operator,
+                "completed_timestamp":  datetime.now().isoformat(),
+            }
+            response = requests.post(
+                f"{BASE_URL}/orders/{self.selected_order_id}/confirm",
+                json=payload
+            )
 
-            cursor.execute('''
-                           UPDATE orders
-                           SET status              = 'done',
-                               completed_timestamp = ?,
-                               confirmed_by        = ?
-                           WHERE id = ?
-                             AND status = 'delivering'
-                           ''', (datetime.now().isoformat(), operator, self.selected_order_id))
-
-            # Free the AGV
-            cursor.execute("UPDATE agvs SET status = 'idle', current_order_id = NULL WHERE current_order_id = ?",
-                           (self.selected_order_id,))
-
-            conn.commit()
-
-            messagebox.showinfo("Success", f"✅ Delivery confirmed for Order #{self.selected_order_id} by {operator}!")
-
-            # Clear selection
-            self.selected_order_id = None
-
-            # Refresh orders
-            self.refresh_orders()
+            if response.status_code == 200:
+                messagebox.showinfo(
+                    "Success",
+                    f"✅ Delivery confirmed for Order #{self.selected_order_id} by {operator}!"
+                )
+                self.selected_order_id = None
+                self.refresh_orders()
+            else:
+                messagebox.showerror("API Error", response.text)
 
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to confirm delivery: {str(e)}")
-        finally:
-            if conn:
-                conn.close()
+            messagebox.showerror("Error", f"Failed to confirm delivery: {e}")
+
+    def cancel_order(self):
+        """Cancel selected order via API"""
+        if not self.selected_order_id:
+            messagebox.showwarning("No Selection", "Please select an order to cancel.")
+            return
+
+        if not messagebox.askyesno("Confirm", "Are you sure you want to cancel this order?"):
+            return
+
+        try:
+            response = requests.post(
+                f"{BASE_URL}/orders/{self.selected_order_id}/cancel",
+                json={}
+            )
+
+            if response.status_code == 200:
+                self.selected_order_id = None
+                self.refresh_orders()
+                messagebox.showinfo("Success", "Order cancelled successfully.")
+            else:
+                messagebox.showerror("API Error", response.text)
+
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
 
     def refresh_orders(self):
-        """Refresh orders list while preserving selection if possible"""
+        """Fetch orders from API and repopulate the treeview"""
         if self.is_refreshing:
             return
 
         self.is_refreshing = True
-        conn = None
 
         try:
-            # Store current selection before refresh
             previous_selection = self.selected_order_id
 
-            conn = sqlite3.connect('warehouse.db', timeout=30)
-            conn.execute('PRAGMA journal_mode=WAL')
-            cursor = conn.cursor()
+            response = requests.get(f"{BASE_URL}/orders")
+            response.raise_for_status()
+            orders = response.json()
 
-            cursor.execute('''
-                           SELECT id,
-                                  order_name,
-                                  product_name,
-                                  quantity,
-                                  status,
-                                  COALESCE(assigned_agv, ''),
-                                  priority,
-                                  from_location,
-                                  to_location,
-                                  order_time
-                           FROM orders
-                           ORDER BY CASE status
-                                        WHEN 'pending' THEN 1
-                                        WHEN 'assigned' THEN 2
-                                        WHEN 'delivering' THEN 3
-                                        WHEN 'done' THEN 4
-                                        ELSE 5
-                                        END,
-                                    priority DESC, timestamp ASC
-                           ''')
-
-            # Clear existing items
             for item in self.tree.get_children():
                 self.tree.delete(item)
 
-            # Insert updated data
-            for row in cursor.fetchall():
-                assigned = f"AGV-{row[5]}" if row[5] and row[5] != '' else 'Not assigned'
-                values = (row[0], row[1], row[2], row[3], row[4], assigned, row[6], row[7], row[8], row[9])
+            for order in orders:
+                assigned = order["agv"] if order.get("agv") else "Not assigned"
 
-                # Color coding
-                tag = ''
-                if row[4] == 'pending':
-                    tag = 'pending'
-                elif row[4] == 'assigned':
-                    tag = 'assigned'
-                elif row[4] == 'delivering':
-                    tag = 'delivering'
-                elif row[4] == 'done':
-                    tag = 'done'
-                elif row[4] == 'cancelled':
-                    tag = 'cancelled'
+                values = (
+                    order["id"],
+                    order["order_name"],
+                    order["product"],
+                    order["qty"],
+                    order["status"],
+                    assigned,
+                    order["priority"],
+                    order["from_location"],
+                    order["to_location"],
+                    order["order_time"],
+                )
 
-                item_id = self.tree.insert('', 'end', values=values, tags=(tag,))
+                status = order["status"].lower()
+                tag = status if status in ("pending", "assigned", "delivering", "done", "cancelled") else ""
 
-                # Restore selection if this was the previously selected order
-                if previous_selection and row[0] == previous_selection:
+                item_id = self.tree.insert("", "end", values=values, tags=(tag,))
+
+                if previous_selection and order["id"] == previous_selection:
                     self.tree.selection_set(item_id)
                     self.selected_order_id = previous_selection
 
-            # Configure tags
-            self.tree.tag_configure('pending', background='yellow')
-            self.tree.tag_configure('assigned', background='orange')
-            self.tree.tag_configure('delivering', background='lightcoral')
-            self.tree.tag_configure('done', background='lightgreen')
-            self.tree.tag_configure('cancelled', background='gray')
+            self.tree.tag_configure("pending",    background="yellow")
+            self.tree.tag_configure("assigned",   background="orange")
+            self.tree.tag_configure("delivering", background="lightcoral")
+            self.tree.tag_configure("done",       background="lightgreen")
+            self.tree.tag_configure("cancelled",  background="gray")
 
-            # Update logs
             self.refresh_logs()
 
+        except requests.exceptions.RequestException as e:
+            print(f"API Error: {e}")
         except Exception as e:
             print(f"Error refreshing orders: {e}")
         finally:
-            if conn:
-                conn.close()
             self.is_refreshing = False
 
-        # Schedule next refresh
         self.root.after(5000, self.refresh_orders)
 
     def refresh_logs(self):
-        """Refresh system logs display"""
-        conn = None
+        """Fetch system logs from API and display them"""
         try:
-            conn = sqlite3.connect('warehouse.db', timeout=30)
-            cursor = conn.cursor()
-
-            cursor.execute('''
-                           SELECT timestamp, source, level, message
-                           FROM system_logs
-                           ORDER BY id DESC
-                               LIMIT 20
-                           ''')
+            response = requests.get(f"{BASE_URL}/logs", params={"limit": 20})
+            response.raise_for_status()
+            logs = response.json()
 
             self.logs_text.delete(1.0, tk.END)
 
-            for row in cursor.fetchall():
-                log_entry = f"[{row[0][:19]}] [{row[1]}] {row[2]}: {row[3]}\n"
-                self.logs_text.insert(tk.END, log_entry)
+            for log in logs:
+                # Accept both flat fields and nested dicts from the API
+                timestamp = log.get("timestamp", "")[:19]
+                source    = log.get("source", "")
+                level     = log.get("level", "")
+                message   = log.get("message", "")
+                entry = f"[{timestamp}] [{source}] {level}: {message}\n"
+                self.logs_text.insert(tk.END, entry)
 
-            # Auto-scroll to bottom
             self.logs_text.see(tk.END)
 
+        except requests.exceptions.RequestException as e:
+            # Logs endpoint may not exist yet — fail silently so orders still work
+            print(f"Logs fetch error: {e}")
         except Exception as e:
             print(f"Error refreshing logs: {e}")
-        finally:
-            if conn:
-                conn.close()
-
-    def cancel_order(self):
-        """Cancel selected order"""
-        if not self.selected_order_id:
-            messagebox.showwarning("No Selection", "Please select an order to cancel")
-            return
-
-        # Get current status
-        conn = None
-        try:
-            conn = sqlite3.connect('warehouse.db', timeout=30)
-            cursor = conn.cursor()
-            cursor.execute("SELECT status FROM orders WHERE id = ?", (self.selected_order_id,))
-            result = cursor.fetchone()
-            if result:
-                status = result[0]
-            else:
-                messagebox.showerror("Error", "Order not found!")
-                return
-            conn.close()
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to get order status: {str(e)}")
-            return
-        finally:
-            if conn:
-                conn.close()
-
-        if status != 'pending':
-            messagebox.showwarning("Cannot Cancel",
-                                   f"Order {self.selected_order_id} is '{status}' and cannot be cancelled!")
-            return
-
-        if messagebox.askyesno("Confirm Cancel", f"Are you sure you want to cancel Order #{self.selected_order_id}?"):
-            try:
-                conn = sqlite3.connect('warehouse.db', timeout=30, isolation_level=None)
-                conn.execute('PRAGMA journal_mode=WAL')
-                cursor = conn.cursor()
-
-                # Get product and quantity to restore stock
-                cursor.execute("SELECT product_id, quantity FROM orders WHERE id = ?", (self.selected_order_id,))
-                order = cursor.fetchone()
-
-                if order and order[0]:
-                    # Restore stock
-                    self.db.update_stock(order[0], order[1])
-
-                # Cancel order
-                cursor.execute("UPDATE orders SET status = 'cancelled' WHERE id = ?", (self.selected_order_id,))
-                conn.commit()
-
-                messagebox.showinfo("Success", f"Order #{self.selected_order_id} cancelled and stock restored!")
-
-                # Clear selection
-                self.selected_order_id = None
-
-                # Refresh all displays
-                self.refresh_orders()
-                if hasattr(self, 'product_manager'):
-                    self.product_manager.refresh_products()
-                self.refresh_product_dropdown()
-
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to cancel order: {str(e)}")
-            finally:
-                if conn:
-                    conn.close()
 
 
 if __name__ == "__main__":
-    # Setup database first
-    setup_database()
-
-    # Create and run the application
     root = tk.Tk()
     app = OrderManagementSystem(root)
     root.mainloop()
