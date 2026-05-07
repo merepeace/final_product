@@ -1,0 +1,10 @@
+# Web Framework & API
+fastapi==0.109.0
+uvicorn==0.27.0
+sqlalchemy==2.0.25
+
+# HTTP Client for Tkinter-to-API communication
+requests==2.31.0
+
+# Database
+# sqlite3 is built into Python, so it is not listed here.
