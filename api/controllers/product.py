@@ -15,6 +15,11 @@ def get_all_products(db: Session):
 def get_product(db: Session, product_id: str):
     return db.query(model.Product).filter(model.Product.id == product_id).first()
 
+def search_products(db, query: str):
+    return db.query(model.Product).filter(
+        model.Product.productname.ilike(f"%{query}%")
+    ).all()
+
 def update_product(db: Session, product_id: str, updated: schema.ProductCreate):
     product = get_product(db, product_id)
     if not product:
