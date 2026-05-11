@@ -4,9 +4,15 @@ from sqlalchemy.orm import Session
 
 from models.order import OrderModel
 from models.zone import ZoneModel
+from schemas.order import OrderStatus
 from schemas.zone import ZoneCreate, ZoneUpdate
 
-ACTIVE_ORDER_STATUSES = ("pending", "assigned", "delivering")
+# Zones tied to an order route while the job is queued or moving on an AGV.
+ACTIVE_ORDER_STATUSES = (
+    OrderStatus.VALIDATED.value,
+    OrderStatus.ASSIGNED.value,
+    OrderStatus.IN_TRANSIT.value,
+)
 
 
 def _occupied_zone_names(db: Session) -> set[str]:

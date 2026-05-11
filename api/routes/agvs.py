@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 import controllers.agv as agvController
 from dependencies import get_current_user, get_db
 from schemas.agv import AGV, AGVCreate, AGVUpdate
+from services.file_export import export_snapshot_safe
 
 router = APIRouter(
     prefix="/agvs",
@@ -29,7 +30,9 @@ def read_agv(agv_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=AGV, status_code=201)
 def add_agv(payload: AGVCreate, db: Session = Depends(get_db)):
-    return agvController.create_agv(db, payload)
+    agv = agvController.create_agv(db, payload)
+    export_snapshot_safe()
+    return agv
 
 
 @router.put("/{agv_id}", response_model=AGV)
@@ -39,6 +42,7 @@ def update_existing_agv(
     updated = agvController.update_agv(db, agv_id, payload)
     if not updated:
         raise HTTPException(status_code=404, detail="AGV not found")
+    export_snapshot_safe()
     return updated
 
 
@@ -47,4 +51,5 @@ def remove_agv(agv_id: int, db: Session = Depends(get_db)):
     deleted = agvController.delete_agv(db, agv_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="AGV not found")
+    export_snapshot_safe()
     return {"message": "AGV deleted successfully"}

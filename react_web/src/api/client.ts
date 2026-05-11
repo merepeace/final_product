@@ -36,9 +36,15 @@ export function extractApiError(err: unknown, fallback = "Request failed"): stri
     const detail = err.response?.data?.detail;
     if (typeof detail === "string") return detail;
     if (Array.isArray(detail) && detail.length > 0) {
-      const first = detail[0];
-      if (typeof first === "string") return first;
-      if (first?.msg) return String(first.msg);
+      const parts = detail.map((item: unknown) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object" && "msg" in item) {
+          const msg = (item as { msg?: string }).msg;
+          if (msg) return msg;
+        }
+        return JSON.stringify(item);
+      });
+      return parts.join("; ");
     }
     if (err.message) return err.message;
   }

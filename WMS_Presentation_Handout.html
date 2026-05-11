@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>WMS — Presentation Handout</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: #1f2937;
+    background: #ffffff;
+    font-size: 10.5px;
+    line-height: 1.45;
+  }
+
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 10mm 12mm;
+    margin: 0 auto;
+    background: #fff;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 3px solid #2563eb;
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+  }
+  header h1 {
+    font-size: 20px;
+    margin: 0;
+    color: #1e3a8a;
+    letter-spacing: 0.3px;
+  }
+  header .sub {
+    font-size: 11px;
+    color: #2563eb;
+    font-weight: 600;
+  }
+  header .meta {
+    text-align: right;
+    font-size: 9.5px;
+    color: #6b7280;
+  }
+
+  /* ---------- Layout grids ---------- */
+  .row {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  /* ---------- Cards ---------- */
+  .card {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 8px 10px;
+    background: #f9fafb;
+  }
+  .card.accent { background: #eff6ff; border-color: #bfdbfe; }
+  .card.dark { background: #1e293b; color: #f1f5f9; border-color: #1e293b; }
+  .card.dark h2 { color: #93c5fd; }
+
+  h2 {
+    font-size: 11.5px;
+    margin: 0 0 5px 0;
+    color: #1e3a8a;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    border-bottom: 1px solid #cbd5e1;
+    padding-bottom: 3px;
+  }
+
+  ul { margin: 4px 0 0 16px; padding: 0; }
+  li { margin-bottom: 2px; }
+
+  /* ---------- Architecture diagram ---------- */
+  .arch {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    text-align: center;
+    margin-top: 4px;
+  }
+  .arch .box {
+    padding: 8px 4px;
+    border-radius: 5px;
+    font-weight: 600;
+    font-size: 10px;
+    color: #fff;
+  }
+  .arch .b1 { background: #06b6d4; }
+  .arch .b2 { background: #2563eb; }
+  .arch .b3 { background: #7c3aed; }
+  .arch .arrow {
+    text-align: center;
+    color: #6b7280;
+    font-size: 12px;
+    margin: 2px 0;
+  }
+  .arch .sim {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    padding: 6px;
+    border: 1px dashed #f59e0b;
+    background: #fffbeb;
+    color: #92400e;
+    font-weight: 600;
+    border-radius: 5px;
+    font-size: 10px;
+  }
+
+  /* ---------- Lifecycle pills ---------- */
+  .lifecycle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    margin-top: 4px;
+  }
+  .pill {
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 9.5px;
+    font-weight: 600;
+    color: #fff;
+  }
+  .p1 { background: #6b7280; }
+  .p2 { background: #f59e0b; }
+  .p3 { background: #3b82f6; }
+  .p4 { background: #8b5cf6; }
+  .p5 { background: #10b981; }
+  .lifecycle .arr { color: #9ca3af; font-weight: bold; }
+
+  /* ---------- Entities table ---------- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4px;
+    font-size: 9.8px;
+  }
+  th, td {
+    text-align: left;
+    padding: 3px 6px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  th { background: #1e3a8a; color: #fff; font-size: 9.5px; }
+
+  /* ---------- Screenshot placeholder ---------- */
+  .shots {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .shot {
+    border: 1.5px dashed #94a3b8;
+    border-radius: 5px;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    font-size: 9px;
+    text-align: center;
+    background:
+      linear-gradient(135deg, #f1f5f9 25%, transparent 25%) -10px 0,
+      linear-gradient(225deg, #f1f5f9 25%, transparent 25%) -10px 0,
+      #fff;
+    background-size: 20px 20px;
+  }
+
+  /* ---------- Talking points ---------- */
+  .talking {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .talking .quote {
+    font-style: italic;
+    font-size: 10px;
+    color: #475569;
+    border-left: 3px solid #2563eb;
+    padding-left: 8px;
+    margin: 3px 0;
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 2px solid #2563eb;
+    font-size: 9px;
+    color: #6b7280;
+    display: flex;
+    justify-content: space-between;
+  }
+  footer .url { color: #2563eb; font-weight: 600; }
+
+  /* ---------- Print ---------- */
+  @media print {
+    body { font-size: 10px; }
+    .page { box-shadow: none; padding: 0; }
+    .no-print { display: none; }
+  }
+  .no-print {
+    text-align: center;
+    margin: 6px 0;
+  }
+  .no-print button {
+    background: #2563eb; color: #fff; border: none;
+    padding: 8px 18px; border-radius: 4px; cursor: pointer; font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="no-print">
+  <button onclick="window.print()">🖨️ Print / Save as PDF</button>
+</div>
+
+<div class="page">
+
+  <!-- HEADER -->
+  <header>
+    <div>
+      <h1>Warehouse Management System (WMS)</h1>
+      <div class="sub">Full-Stack Order &amp; AGV Automation Platform</div>
+    </div>
+    <div class="meta">
+      Presented by: ____________________<br/>
+      Date: ____________________
+    </div>
+  </header>
+
+  <!-- ROW 1: Problem + Solution -->
+  <div class="row">
+    <div class="card">
+      <h2>The Problem</h2>
+      <ul>
+        <li>Warehouses juggle thousands of orders &amp; multiple robots</li>
+        <li>Manual coordination → errors, delays, lost stock</li>
+        <li>No real-time visibility into orders or AGV status</li>
+        <li>Idle robots while orders pile up</li>
+      </ul>
+    </div>
+    <div class="card accent">
+      <h2>The Solution</h2>
+      <ul>
+        <li>One system to manage <b>Products, Orders, Zones, AGVs</b></li>
+        <li>Secure login + role-based access</li>
+        <li><b>Auto-assigns</b> orders to available AGVs</li>
+        <li>Real-time tracking + complete audit trail</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ROW 2: Architecture + Tech Stack -->
+  <div class="row">
+    <div class="card">
+      <h2>System Architecture</h2>
+      <div class="arch">
+        <div class="box b1">React Web<br/><span style="font-weight:400;font-size:9px">(frontend)</span></div>
+        <div class="box b2">FastAPI<br/><span style="font-weight:400;font-size:9px">(backend)</span></div>
+        <div class="box b3">SQLite<br/><span style="font-weight:400;font-size:9px">(database)</span></div>
+        <div class="arrow">⇄</div>
+        <div class="arrow">⇄</div>
+        <div class="arrow"></div>
+        <div class="sim">⚙ Background AGV Simulator (async lifespan task)</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Tech Stack</h2>
+      <ul>
+        <li><b>Backend:</b> Python · FastAPI · SQLAlchemy · SQLite · JWT</li>
+        <li><b>Frontend:</b> React · TypeScript · Vite · Context API</li>
+        <li><b>Patterns:</b> Layered architecture (models → schemas → controllers → routes)</li>
+        <li><b>Tooling:</b> Swagger/OpenAPI auto-docs · CORS · Global error handler</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ROW 3: Entities + Order Lifecycle -->
+  <div class="row">
+    <div class="card">
+      <h2>Core Entities</h2>
+      <table>
+        <tr><th>Entity</th><th>Purpose</th></tr>
+        <tr><td><b>Product</b></td><td>Items stored in warehouse</td></tr>
+        <tr><td><b>Order</b></td><td>Customer requests + priority</td></tr>
+        <tr><td><b>Zone</b></td><td>Source / destination locations</td></tr>
+        <tr><td><b>AGV</b></td><td>Automated guided vehicles</td></tr>
+        <tr><td><b>User</b></td><td>Authenticated staff</td></tr>
+        <tr><td><b>SystemLog</b></td><td>Audit trail of every action</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Order Lifecycle</h2>
+      <div class="lifecycle">
+        <span class="pill p1">pending</span>
+        <span class="arr">→</span>
+        <span class="pill p2">validated</span>
+        <span class="arr">→</span>
+        <span class="pill p3">assigned</span>
+        <span class="arr">→</span>
+        <span class="pill p4">in-transit</span>
+        <span class="arr">→</span>
+        <span class="pill p5">delivered</span>
+      </div>
+      <ul style="margin-top:6px">
+        <li>User creates order with priority &amp; destination</li>
+        <li>System validates + persists to DB</li>
+        <li>Simulator picks the next idle AGV</li>
+        <li>AGV moves item from source → destination zone</li>
+        <li>Status auto-updates; every step is logged</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ROW 4: Screenshots -->
+  <div class="card">
+    <h2>Demo Screens</h2>
+    <div class="shots">
+      <div class="shot">📸 Login Page</div>
+      <div class="shot">📸 Dashboard / KPIs</div>
+      <div class="shot">📸 Products CRUD</div>
+      <div class="shot">📸 Zones Management</div>
+      <div class="shot">📸 Orders + Priority</div>
+      <div class="shot">📸 AGVs Live Status</div>
+    </div>
+    <div style="font-size:9px;color:#64748b;margin-top:4px;">
+      Replace placeholders with real screenshots before printing — or hand out as-is and demo live.
+    </div>
+  </div>
+
+  <!-- ROW 5: Talking Points + Challenges -->
+  <div class="row">
+    <div class="card">
+      <h2>Key Talking Points</h2>
+      <div class="quote">"A user clicks <i>Create Order</i> — minutes later, it's delivered, with zero manual coordination."</div>
+      <div class="quote">"Frontend is what you see; backend is the brain; database is the memory; simulator is the robot's hands."</div>
+      <div class="quote">"Production-ready: swap simulator for real AGV APIs, SQLite for Postgres."</div>
+    </div>
+    <div class="card">
+      <h2>Challenges &amp; Learnings</h2>
+      <ul>
+        <li>Designing clean relationships: Orders ↔ AGVs ↔ Zones</li>
+        <li>Async background simulator without blocking the API (FastAPI <code>lifespan</code>)</li>
+        <li>End-to-end auth: JWT on backend + token handling in React context</li>
+        <li>Validation &amp; error handling at every layer (schemas, services, global handler)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ROW 6: Demo flow + Q&A prompts -->
+  <div class="row">
+    <div class="card dark">
+      <h2>Live Demo Flow (5–7 min)</h2>
+      <ol style="margin:4px 0 0 18px; padding:0;">
+        <li>Login → land on Dashboard</li>
+        <li>Add &amp; edit a Product</li>
+        <li>Show Zones (source vs destination)</li>
+        <li>Create an Order with priority</li>
+        <li>Watch AGV auto-pick &amp; deliver</li>
+        <li>Open Logs page → audit trail</li>
+        <li><i>Bonus:</i> open Swagger UI at <code>/docs</code></li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2>Likely Audience Questions</h2>
+      <ul>
+        <li><b>Q:</b> What if two orders need the same AGV?
+          <br/><b>A:</b> Queue + first-come-first-served per AGV.</li>
+        <li><b>Q:</b> Can it scale?
+          <br/><b>A:</b> Yes — swap SQLite → Postgres, simulator → real AGV API.</li>
+        <li><b>Q:</b> Is it secure?
+          <br/><b>A:</b> JWT auth on every endpoint + global error handler.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div>
+      Stack: FastAPI · React · TypeScript · SQLite · JWT
+    </div>
+    <div>
+      Backend: <span class="url">localhost:8000</span> &nbsp;·&nbsp;
+      API Docs: <span class="url">localhost:8000/docs</span> &nbsp;·&nbsp;
+      Frontend: <span class="url">localhost:5173</span>
+    </div>
+  </footer>
+
+</div>
+
+</body>
+</html>

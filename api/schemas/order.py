@@ -6,11 +6,15 @@ from pydantic import BaseModel, Field
 
 
 class OrderStatus(str, Enum):
+    """Aligned with presentation lifecycle: pending → validated → assigned → in_transit → delivered."""
+
     PENDING = "pending"
+    VALIDATED = "validated"
     ASSIGNED = "assigned"
-    DELIVERING = "delivering"
-    DONE = "done"
+    IN_TRANSIT = "in_transit"
+    DELIVERED = "delivered"
     CANCELLED = "cancelled"
+    FAILED = "failed"
 
 
 class OrderBase(BaseModel):

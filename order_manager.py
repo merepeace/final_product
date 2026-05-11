@@ -45,7 +45,7 @@ class OrderManagementSystem:
         details_frame.pack(fill="x", pady=5)
 
         # Row 0: Order Name
-        tk.Label(details_frame, text="Order Name:", width=15, anchor='w').grid(row=0, column=0, padx=5, pady=5)
+        tk.Label(details_frame, text="Order ID:", width=15, anchor='w').grid(row=0, column=0, padx=5, pady=5)
         self.order_name_entry = tk.Entry(details_frame, width=30)
         self.order_name_entry.grid(row=0, column=1, padx=5, pady=5)
 
@@ -59,7 +59,7 @@ class OrderManagementSystem:
         self.product_info_label.grid(row=2, column=0, columnspan=2, padx=5, pady=5)
 
         # Row 3: Quantity
-        tk.Label(details_frame, text="Quantity:", width=15, anchor='w').grid(row=3, column=0, padx=5, pady=5)
+        tk.Label(details_frame, text="values:", width=25, anchor='w').grid(row=5, column=0, padx=7, pady=9)
         self.quantity_entry = tk.Entry(details_frame, width=10)
         self.quantity_entry.insert(0, "1")
         self.quantity_entry.grid(row=3, column=1, sticky='w', padx=5, pady=5)
@@ -99,10 +99,10 @@ class OrderManagementSystem:
                                    font=('Arial', 10, 'bold'))
         list_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
-        columns = ('ID', 'Order Name', 'Product', 'Qty', 'Status', 'AGV', 'Priority', 'From', 'To', 'Order Time')
+        columns = ('ID', 'Order ID', 'Product', 'Qty', 'Status', 'AGV', 'Priority', 'From', 'To', 'Order Time')
         self.tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=15)
 
-        headings = ['ID', 'Order Name', 'Product', 'Qty', 'Status', 'Assigned AGV', 'Priority', 'From', 'To', 'Order Time']
+        headings = ['ID', 'Order ID', 'Product', 'Qty', 'Status', 'Assigned AGV', 'Priority', 'From', 'To', 'Order Time']
         widths   = [50,   150,          150,       60,    100,      100,            60,         100,    100,  150]
 
         for col, heading, width in zip(columns, headings, widths):
@@ -192,7 +192,7 @@ class OrderManagementSystem:
         try:
             order_name = self.order_name_entry.get().strip()
             if not order_name:
-                messagebox.showwarning("Validation Error", "Order name is required!")
+                messagebox.showwarning("Validation Error", "Order ID is required!")
                 return
 
             if not self.selected_product_id:

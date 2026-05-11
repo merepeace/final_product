@@ -21,6 +21,7 @@ import type { GridColDef } from "@mui/x-data-grid";
 import CancelIcon from "@mui/icons-material/Cancel";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import SaveAltIcon from "@mui/icons-material/SaveAlt";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,10 +31,12 @@ import PageHeader from "../components/PageHeader";
 import StatusChip from "../components/StatusChip";
 import ExportCsvButton from "../components/ExportCsvButton";
 import type { CsvColumn } from "../utils/csv";
+import { postExportSnapshot } from "../api/export";
 import {
   cancelOrder,
   confirmOrder,
   createOrder,
+  getOrdersQueue,
   listOrders,
 } from "../api/orders";
 import { listProducts } from "../api/products";
@@ -88,6 +91,11 @@ export default function OrdersPage() {
     queryFn: listOrders,
     refetchInterval: 5000,
   });
+  const queueQuery = useQuery({
+    queryKey: ["orders", "queue"],
+    queryFn: getOrdersQueue,
+    refetchInterval: 5000,
+  });
   const productsQuery = useQuery({ queryKey: ["products"], queryFn: listProducts });
   const zonesQuery = useQuery({ queryKey: ["zones"], queryFn: listZones });
 
@@ -113,6 +121,14 @@ export default function OrdersPage() {
       qc.invalidateQueries({ queryKey: ["orders"] });
     },
     onError: (err) => toast.error(extractApiError(err, "Cancel failed")),
+  });
+
+  const exportServerMut = useMutation({
+    mutationFn: postExportSnapshot,
+    onSuccess: (res) => {
+      toast.success(`Server CSV updated: ${res.directory}`);
+    },
+    onError: (err) => toast.error(extractApiError(err, "Export failed")),
   });
 
   const confirmMut = useMutation({
@@ -171,8 +187,9 @@ export default function OrdersPage() {
       filterable: false,
       renderCell: (params) => {
         const order = params.row;
-        const canCancel = !["done", "cancelled"].includes(order.status);
-        const canConfirm = order.status === "delivering";
+        const terminal = ["delivered", "cancelled", "failed"];
+        const canCancel = !terminal.includes(order.status);
+        const canConfirm = order.status === "in_transit";
         return (
           <Stack direction="row">
             <Tooltip title="Confirm Delivery">
@@ -216,9 +233,22 @@ export default function OrdersPage() {
     <Box>
       <PageHeader
         title="Orders"
-        subtitle="Auto-refreshing every 5 seconds"
+        subtitle={
+          queueQuery.data
+            ? `Queue: ${queueQuery.data.validated_orders_waiting} validated waiting · ${queueQuery.data.idle_agvs} idle AGVs · auto-refresh 5s`
+            : "Auto-refreshing every 5 seconds"
+        }
         actions={
           <>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<SaveAltIcon />}
+              disabled={exportServerMut.isPending}
+              onClick={() => exportServerMut.mutate()}
+            >
+              Save server CSV
+            </Button>
             <ExportCsvButton<Order>
               basename="orders"
               rows={ordersQuery.data ?? []}

@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -17,6 +17,12 @@ router = APIRouter(
 @router.get("/", response_model=List[Order])
 def read_orders(db: Session = Depends(get_db)):
     return orderController.list_orders(db)
+
+
+@router.get("/queue", response_model=Dict[str, Any])
+def orders_queue(db: Session = Depends(get_db)):
+    """AGV queue vs validated orders (idle AGVs pick the next job automatically)."""
+    return orderController.queue_snapshot(db)
 
 
 @router.get("/{order_id}", response_model=Order)

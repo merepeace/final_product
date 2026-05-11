@@ -1,16 +1,22 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from controllers.system_log import create_log
+from models.agv import AGVModel
 from models.order import OrderModel
 from models.product import Product
 from models.zone import ZoneModel
 from schemas.order import OrderCreate, OrderStatus, OrderUpdate
+from services.file_export import export_snapshot_safe
 
-FINAL_STATUSES = {OrderStatus.DONE.value, OrderStatus.CANCELLED.value}
+FINAL_STATUSES = {
+    OrderStatus.DELIVERED.value,
+    OrderStatus.CANCELLED.value,
+    OrderStatus.FAILED.value,
+}
 
 
 def _ensure_zone(db: Session, zone_name: str) -> ZoneModel:
@@ -31,6 +37,27 @@ def _ensure_product(db: Session, product_name: str) -> Product:
             detail=f"Product '{product_name}' not found",
         )
     return product
+
+
+def queue_snapshot(db: Session) -> Dict[str, Any]:
+    """Counts for UI: validated orders waiting for an idle AGV vs fleet capacity."""
+    validated_waiting = (
+        db.query(OrderModel)
+        .filter(OrderModel.status == OrderStatus.VALIDATED.value)
+        .count()
+    )
+    idle_agvs = (
+        db.query(AGVModel).filter(AGVModel.status == "idle").count()
+    )
+    busy_agvs = (
+        db.query(AGVModel).filter(AGVModel.status == "busy").count()
+    )
+    return {
+        "validated_orders_waiting": validated_waiting,
+        "idle_agvs": idle_agvs,
+        "busy_agvs": busy_agvs,
+        "note": "Orders in 'validated' are queued until an AGV becomes idle.",
+    }
 
 
 def list_orders(db: Session) -> List[OrderModel]:
@@ -74,14 +101,17 @@ def create_order(db: Session, payload: OrderCreate) -> OrderModel:
         order_time=datetime.utcnow(),
     )
     db.add(order)
+    db.flush()
+    order.status = OrderStatus.VALIDATED.value
     db.commit()
     db.refresh(order)
 
     create_log(
         db,
-        message=f"Order #{order.id} '{order.order_name}' created (priority={order.priority})",
+        message=f"Order #{order.id} '{order.order_name}' created and validated (priority={order.priority})",
         source="API",
     )
+    export_snapshot_safe()
     return order
 
 
@@ -109,6 +139,7 @@ def update_order(
     db.commit()
     db.refresh(order)
     create_log(db, message=f"Order #{order.id} updated", source="API")
+    export_snapshot_safe()
     return order
 
 
@@ -119,6 +150,7 @@ def delete_order(db: Session, order_id: int) -> bool:
     db.delete(order)
     db.commit()
     create_log(db, message=f"Order #{order_id} deleted", source="API")
+    export_snapshot_safe()
     return True
 
 
@@ -142,6 +174,7 @@ def cancel_order(db: Session, order_id: int) -> Optional[OrderModel]:
         level="WARN",
         source="API",
     )
+    export_snapshot_safe()
     return order
 
 
@@ -151,10 +184,10 @@ def confirm_delivery(
     order = get_order(db, order_id)
     if not order:
         return None
-    if order.status != OrderStatus.DELIVERING.value:
+    if order.status != OrderStatus.IN_TRANSIT.value:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Order status is '{order.status}'. Only 'delivering' orders can be confirmed.",
+            detail=f"Order status is '{order.status}'. Only 'in_transit' orders can be confirmed.",
         )
 
     product = (
@@ -163,7 +196,7 @@ def confirm_delivery(
     if product:
         product.stock_quantity = max(0, product.stock_quantity - order.qty)
 
-    order.status = OrderStatus.DONE.value
+    order.status = OrderStatus.DELIVERED.value
     order.completed_timestamp = datetime.utcnow()
     order.confirmed_by = confirmed_by
     db.commit()
@@ -174,4 +207,5 @@ def confirm_delivery(
         message=f"Order #{order.id} delivery confirmed by {confirmed_by}",
         source="API",
     )
+    export_snapshot_safe()
     return order

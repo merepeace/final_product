@@ -1,9 +1,18 @@
 export type OrderStatus =
   | "pending"
+  | "validated"
   | "assigned"
-  | "delivering"
-  | "done"
-  | "cancelled";
+  | "in_transit"
+  | "delivered"
+  | "cancelled"
+  | "failed";
+
+export interface OrdersQueueSnapshot {
+  validated_orders_waiting: number;
+  idle_agvs: number;
+  busy_agvs: number;
+  note: string;
+}
 
 export interface Order {
   id: number;

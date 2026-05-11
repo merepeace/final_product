@@ -1,0 +1,12 @@
+id,order_name,product,qty,status,agv,priority,from_location,to_location,order_time,completed_timestamp,confirmed_by
+1,Smoke Order,Smoke Widget,2,delivered,AGV-1,5,Warehouse,Zone A,2026-05-07T16:15:06.538260,2026-05-07T16:15:14.201713,smoke-tester
+2,Umesh's Order,Fantech Mechanical Keyboard,1,delivered,AGV-1,3,Warehouse,Zone C,2026-05-07T16:40:44.633894,2026-05-07T16:41:55.901564,admin
+3,Prakash's Order,Fantech Mechanical Keyboard,1,delivered,AGV-2,2,Production Line,Warehouse,2026-05-07T16:41:31.314210,2026-05-07T16:42:02.662270,admin
+4,ramen,ramen,1000,delivered,AGV-1,3,Production Line,Zone 444,2026-05-07T17:15:09.152404,2026-05-08T06:37:07.207375,admin
+5,smart,Fantech Mechanical Keyboard,6,delivered,AGV-2,3,Warehouse,Zone A,2026-05-07T17:15:44.317590,2026-05-08T06:36:01.118120,admin
+6,Abc technical shop,Fantech Mechanical Keyboard,5,delivered,AGV-1,1,Zone A,Zone D,2026-05-08T00:09:55.797563,2026-05-08T06:37:03.567530,admin
+7,dipesh,ramen,100,delivered,AGV-1,3,Zone A,Zone 444,2026-05-08T06:32:09.790625,2026-05-08T06:37:00.411429,admin
+8,ramesh,Smoke Widget,5,delivered,AGV-1,1,Warehouse,Zone A,2026-05-08T06:36:25.057409,2026-05-08T06:36:57.166074,admin
+9,ram,Smoke Widget,1,in_transit,AGV-1,3,Warehouse,Zone A,2026-05-08T06:37:26.529792,,
+10,sadnf,ramen,1,in_transit,AGV-2,3,Warehouse,Zone A,2026-05-08T06:37:34.677260,,
+11,apple,Noto,1,failed,AGV-1,3,Warehouse,Zone A,2026-05-11T09:03:29.952491,,

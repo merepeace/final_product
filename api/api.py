@@ -16,12 +16,15 @@ from models import system_log as _system_log_model  # noqa: F401
 from models import zone as _zone_model  # noqa: F401
 from routes.agvs import router as agvs_router
 from routes.auth import router as auth_router
+from routes.export import router as export_router
 from routes.logs import router as logs_router
 from routes.orders import router as orders_router
 from routes.product import router as products_router
 from routes.zones import router as zones_router
+from db_migrate import migrate_legacy_order_statuses
 from seed import seed_defaults
 from services.agv_simulator import simulator
+from services.file_export import export_snapshot_safe
 
 logger = logging.getLogger("wms-api")
 
@@ -30,7 +33,9 @@ Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    migrate_legacy_order_statuses()
     seed_defaults()
+    export_snapshot_safe()
     await simulator.start()
     try:
         yield
@@ -76,6 +81,7 @@ app.include_router(orders_router)
 app.include_router(zones_router)
 app.include_router(agvs_router)
 app.include_router(logs_router)
+app.include_router(export_router)
 
 
 @app.get("/", tags=["Health"])

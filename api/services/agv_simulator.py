@@ -1,7 +1,7 @@
 """AGV background simulator.
 
 Runs as a single asyncio task launched from the FastAPI lifespan. Periodically
-scans for pending orders and assigns each one to a free AGV. For every assigned
+scans for validated orders and assigns each one to a free AGV. For every assigned
 order, a per-order coroutine simulates the pickup -> travel -> waiting-for-
 confirmation -> idle lifecycle, writing SystemLog entries at every transition.
 
@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from sqlalchemy.orm import Session
 
@@ -22,6 +22,7 @@ from database import SessionLocal
 from models.agv import AGVModel
 from models.order import OrderModel
 from schemas.order import OrderStatus
+from services.file_export import export_snapshot_safe
 
 logger = logging.getLogger("agv-simulator")
 
@@ -29,6 +30,8 @@ POLL_INTERVAL_SECONDS = 2.0
 PICKUP_DURATION_SECONDS = 2.0
 TRAVEL_BASE_SECONDS = 4.0
 CONFIRMATION_TIMEOUT_SECONDS = 60.0
+
+ConfirmOutcome = Literal["delivered", "cancelled", "timeout", "missing"]
 
 
 class AGVSimulator:
@@ -84,7 +87,7 @@ class AGVSimulator:
 
             pending = (
                 db.query(OrderModel)
-                .filter(OrderModel.status == OrderStatus.PENDING.value)
+                .filter(OrderModel.status == OrderStatus.VALIDATED.value)
                 .order_by(
                     OrderModel.priority.desc(),
                     OrderModel.order_time.asc(),
@@ -124,6 +127,13 @@ class AGVSimulator:
     ) -> None:
         try:
             await asyncio.sleep(PICKUP_DURATION_SECONDS)
+            if self._should_abort_delivery(order_id):
+                log_event(
+                    f"{agv_name} Order #{order_id} aborted before pickup completed",
+                    level="WARN",
+                    source=agv_name,
+                )
+                return
             log_event(
                 f"{agv_name} picked up Order #{order_id}",
                 source=agv_name,
@@ -136,24 +146,46 @@ class AGVSimulator:
             )
             await asyncio.sleep(travel_time)
 
-            self._set_order_status(order_id, OrderStatus.DELIVERING.value, agv_name=agv_name)
+            if self._should_abort_delivery(order_id):
+                log_event(
+                    f"{agv_name} Order #{order_id} aborted before arrival",
+                    level="WARN",
+                    source=agv_name,
+                )
+                return
+
+            self._set_order_status(order_id, OrderStatus.IN_TRANSIT.value, agv_name=agv_name)
             log_event(
                 f"{agv_name} arrived at {to_location}, awaiting confirmation",
                 source=agv_name,
             )
 
-            confirmed = await self._wait_for_confirmation(order_id)
-            if confirmed:
+            outcome = await self._wait_for_confirmation(order_id)
+            if outcome == "delivered":
                 log_event(
                     f"{agv_name} delivery for Order #{order_id} confirmed",
                     source=agv_name,
                 )
-            else:
+            elif outcome == "cancelled":
                 log_event(
-                    f"{agv_name} confirmation timeout for Order #{order_id}",
+                    f"{agv_name} delivery for Order #{order_id} stopped (order cancelled)",
                     level="WARN",
                     source=agv_name,
                 )
+            elif outcome == "missing":
+                log_event(
+                    f"{agv_name} Order #{order_id} no longer exists",
+                    level="ERROR",
+                    source=agv_name,
+                )
+            else:
+                self._set_order_status(order_id, OrderStatus.FAILED.value, agv_name=agv_name)
+                log_event(
+                    f"{agv_name} confirmation timeout for Order #{order_id} — marked failed",
+                    level="ERROR",
+                    source=agv_name,
+                )
+                export_snapshot_safe()
         except asyncio.CancelledError:
             return
         except Exception as exc:
@@ -163,8 +195,26 @@ class AGVSimulator:
                 level="ERROR",
                 source=agv_name,
             )
+            self._set_order_status(order_id, OrderStatus.FAILED.value, agv_name=agv_name)
+            export_snapshot_safe()
         finally:
             self._release_agv(agv_id, agv_name)
+
+    @staticmethod
+    def _should_abort_delivery(order_id: int) -> bool:
+        db = SessionLocal()
+        try:
+            order = (
+                db.query(OrderModel).filter(OrderModel.id == order_id).first()
+            )
+            if not order:
+                return True
+            return order.status in (
+                OrderStatus.CANCELLED.value,
+                OrderStatus.FAILED.value,
+            )
+        finally:
+            db.close()
 
     @staticmethod
     def _estimate_travel_seconds(to_location: str) -> float:
@@ -175,7 +225,7 @@ class AGVSimulator:
             return zone_map.get(tail, base)
         return base
 
-    async def _wait_for_confirmation(self, order_id: int) -> bool:
+    async def _wait_for_confirmation(self, order_id: int) -> ConfirmOutcome:
         deadline = asyncio.get_event_loop().time() + CONFIRMATION_TIMEOUT_SECONDS
         while asyncio.get_event_loop().time() < deadline and not self._stop.is_set():
             await asyncio.sleep(2.0)
@@ -187,15 +237,16 @@ class AGVSimulator:
                     .first()
                 )
                 if not order:
-                    return False
-                if order.status in (
-                    OrderStatus.DONE.value,
-                    OrderStatus.CANCELLED.value,
-                ):
-                    return order.status == OrderStatus.DONE.value
+                    return "missing"
+                if order.status == OrderStatus.DELIVERED.value:
+                    return "delivered"
+                if order.status == OrderStatus.CANCELLED.value:
+                    return "cancelled"
+                if order.status == OrderStatus.FAILED.value:
+                    return "cancelled"
             finally:
                 db.close()
-        return False
+        return "timeout"
 
     @staticmethod
     def _set_order_status(order_id: int, new_status: str, agv_name: Optional[str] = None) -> None:

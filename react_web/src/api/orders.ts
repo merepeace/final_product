@@ -1,8 +1,13 @@
 import { api } from "./client";
-import type { Order, OrderCreatePayload } from "../types";
+import type { Order, OrderCreatePayload, OrdersQueueSnapshot } from "../types";
 
 export async function listOrders(): Promise<Order[]> {
   const { data } = await api.get<Order[]>("/orders/");
+  return data;
+}
+
+export async function getOrdersQueue(): Promise<OrdersQueueSnapshot> {
+  const { data } = await api.get<OrdersQueueSnapshot>("/orders/queue");
   return data;
 }
 

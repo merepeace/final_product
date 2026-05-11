@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from database import SessionLocal
 from models.system_log import SystemLogModel
+from services.file_export import append_audit_line
 
 
 def list_logs(db: Session, limit: int = 100, source: Optional[str] = None) -> List[SystemLogModel]:
@@ -29,6 +30,8 @@ def create_log(
     db.add(entry)
     db.commit()
     db.refresh(entry)
+    ts = entry.timestamp.isoformat() if entry.timestamp else ""
+    append_audit_line(ts, entry.level, entry.source, entry.message)
     return entry
 
 

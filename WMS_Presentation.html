@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WMS — Warehouse Management System</title>
+
+  <!-- Reveal.js CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css" id="theme">
+
+  <style>
+    :root {
+      --brand: #2563eb;
+      --brand-2: #7c3aed;
+      --accent: #06b6d4;
+      --warning: #f59e0b;
+      --good: #10b981;
+      --dark-1: #0f172a;
+      --dark-2: #1e293b;
+      --light: #f1f5f9;
+      --muted: #94a3b8;
+    }
+
+    /* ---------- Global look ---------- */
+    .reveal {
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      font-size: 28px;
+      color: var(--light);
+    }
+    .reveal .slides {
+      text-align: left;
+    }
+    .reveal section {
+      padding: 30px 40px;
+    }
+    .reveal h1, .reveal h2, .reveal h3 {
+      font-family: "Segoe UI", sans-serif;
+      letter-spacing: 0.3px;
+      color: #fff;
+      text-transform: none;
+      text-shadow: none;
+      font-weight: 700;
+    }
+    .reveal h1 { font-size: 2.4em; line-height: 1.1; }
+    .reveal h2 { font-size: 1.7em; margin-bottom: 0.4em; }
+    .reveal h3 { font-size: 1.2em; color: #93c5fd; }
+
+    .reveal p, .reveal li { line-height: 1.4; }
+    .reveal ul { margin-left: 1em; }
+    .reveal li { margin-bottom: 8px; }
+
+    .reveal a { color: var(--accent); }
+    .reveal code {
+      background: rgba(255,255,255,0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      color: #fbbf24;
+    }
+    .reveal pre {
+      background: var(--dark-1);
+      padding: 14px;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      font-size: 0.6em;
+    }
+
+    /* ---------- Backgrounds ---------- */
+    .bg-gradient {
+      background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 50%, #06b6d4 100%) !important;
+    }
+    .bg-dark {
+      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+    }
+    .bg-blue {
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%) !important;
+    }
+
+    /* ---------- Title slide ---------- */
+    .title-slide {
+      text-align: center !important;
+    }
+    .title-slide h1 {
+      font-size: 3em;
+      background: linear-gradient(90deg, #93c5fd, #c4b5fd, #67e8f9);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.2em;
+    }
+    .title-slide .tagline {
+      font-size: 1.2em;
+      color: #cbd5e1;
+      font-weight: 300;
+      letter-spacing: 1px;
+      margin-bottom: 1.5em;
+    }
+    .title-slide .badge {
+      display: inline-block;
+      padding: 8px 22px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 24px;
+      font-size: 0.7em;
+      margin-top: 30px;
+      color: #cbd5e1;
+    }
+
+    /* ---------- Cards / boxes ---------- */
+    .card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 18px 22px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+    .card-accent {
+      border-left: 4px solid var(--accent);
+    }
+    .card-warn {
+      border-left: 4px solid var(--warning);
+    }
+    .card-good {
+      border-left: 4px solid var(--good);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    /* ---------- Architecture diagram ---------- */
+    .arch {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin: 30px 0;
+      flex-wrap: wrap;
+    }
+    .arch-box {
+      padding: 18px 24px;
+      border-radius: 12px;
+      font-weight: 700;
+      text-align: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      min-width: 150px;
+    }
+    .arch-box .label {
+      display: block;
+      font-size: 0.65em;
+      font-weight: 400;
+      opacity: 0.85;
+      margin-top: 4px;
+    }
+    .arch-arrow {
+      font-size: 2em;
+      color: #94a3b8;
+    }
+    .arch-frontend { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+    .arch-backend { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+    .arch-db { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
+    .arch-sim {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      margin-top: 16px;
+      width: fit-content;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* ---------- Lifecycle pills ---------- */
+    .lifecycle {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+      margin: 30px 0;
+    }
+    .pill {
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-weight: 600;
+      font-size: 0.7em;
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .pill-1 { background: #6b7280; }
+    .pill-2 { background: #f59e0b; }
+    .pill-3 { background: #3b82f6; }
+    .pill-4 { background: #8b5cf6; }
+    .pill-5 { background: #10b981; }
+    .pill-arr {
+      color: #64748b;
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+
+    /* ---------- Entity table ---------- */
+    .reveal table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75em;
+      margin-top: 16px;
+    }
+    .reveal th {
+      background: var(--brand);
+      color: #fff;
+      padding: 10px;
+      text-align: left;
+    }
+    .reveal td {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .reveal tr:hover td {
+      background: rgba(255,255,255,0.04);
+    }
+
+    /* ---------- Stats / numbers ---------- */
+    .stat {
+      text-align: center;
+      padding: 20px;
+    }
+    .stat .num {
+      font-size: 3em;
+      font-weight: 800;
+      background: linear-gradient(90deg, #93c5fd, #c4b5fd);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .stat .lbl {
+      font-size: 0.7em;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 6px;
+    }
+
+    /* ---------- Demo placeholder ---------- */
+    .demo-banner {
+      text-align: center;
+      padding: 40px;
+      border: 3px dashed #f59e0b;
+      border-radius: 16px;
+      background: rgba(245,158,11,0.08);
+    }
+    .demo-banner .pulse {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #ef4444;
+      margin-right: 10px;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.3); }
+    }
+
+    /* ---------- Quote ---------- */
+    .quote {
+      font-style: italic;
+      font-size: 1.1em;
+      color: #e2e8f0;
+      border-left: 4px solid var(--accent);
+      padding: 10px 20px;
+      margin: 20px 0;
+      background: rgba(6,182,212,0.05);
+    }
+
+    /* ---------- Footer-ish ---------- */
+    .small { font-size: 0.7em; color: var(--muted); }
+    .center { text-align: center; }
+    .mt { margin-top: 24px; }
+    .mb { margin-bottom: 24px; }
+
+    /* ---------- Speaker tip ---------- */
+    .reveal .controls { color: var(--brand); }
+    .reveal .progress { color: var(--brand); }
+  </style>
+</head>
+<body>
+
+<div class="reveal">
+  <div class="slides">
+
+    <!-- ============ SLIDE 1 — TITLE ============ -->
+    <section class="bg-gradient title-slide" data-background-gradient="linear-gradient(135deg, #1e3a8a 0%, #7c3aed 60%, #06b6d4 100%)">
+      <h1>Warehouse Management System</h1>
+      <div class="tagline">Full-Stack Order &amp; AGV Automation Platform</div>
+
+      <div class="grid-3" style="margin-top:60px; gap:30px;">
+        <div class="card">
+          <div style="font-size:2em">🏭</div>
+          <div style="font-weight:600;margin-top:8px">Warehouse</div>
+          <div class="small">Smart Storage</div>
+        </div>
+        <div class="card">
+          <div style="font-size:2em">📦</div>
+          <div style="font-weight:600;margin-top:8px">Orders</div>
+          <div class="small">Auto-Routed</div>
+        </div>
+        <div class="card">
+          <div style="font-size:2em">🤖</div>
+          <div style="font-weight:600;margin-top:8px">AGVs</div>
+          <div class="small">Automated</div>
+        </div>
+      </div>
+
+      <div class="badge mt">Presented by ____________________ &nbsp;·&nbsp; ____________</div>
+
+      <aside class="notes">
+        Hi everyone, I'm [Name]. Today I'll walk you through a Warehouse Management System I built — a full-stack solution that automates how orders flow from creation to delivery using simulated robots called AGVs. Let's start with why this matters.
+      </aside>
+    </section>
+
+    <!-- ============ SLIDE 2 — PROBLEM ============ -->
+    <section class="bg-dark">
+      <h2>🚨 The Problem</h2>
+      <h3>Why warehouses need a WMS</h3>
+
+      <div class="grid-2 mt">
+        <div class="card card-warn">
+          <h3 style="margin-top:0">Manual chaos</h3>
+          <ul>
+            <li>Hundreds of orders, thousands of items</li>
+            <li>Wrong items shipped, lost stock</li>
+            <li>Robots idle while orders pile up</li>
+          </ul>
+        </div>
+        <div class="card card-warn">
+          <h3 style="margin-top:0">No visibility</h3>
+          <ul>
+            <li>Managers fly blind</li>
+            <li>No real-time order status</li>
+            <li>No audit of who did what, when</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="quote mt">
+        Without coordination, even the best warehouse becomes the bottleneck.
+      </div>
+
+      <aside class="notes">
+        Picture a warehouse with thousands of items, dozens of orders coming in every hour, and several robots moving things around. Without a system, this is chaos — wrong items shipped, robots colliding for the same job, no visibility into what's happening. My project solves exactly this.
+      </aside>
+    </section>
+
+    <!-- ============ SLIDE 3 — SOLUTION ============ -->
+    <section class="bg-blue">
+      <h2>✅ The Solution</h2>
+      <h3>One system. Four pillars.</h3>
+
+      <div class="grid-2 mt">
+        <div class="card card-good">
+          <h3 style="margin-top:0">📦 Manage Everything</h3>
+          <p class="small">Products · Orders · Zones · AGVs — all in one place with full CRUD.</p>
+        </div>
+        <div class="card card-good">
+          <h3 style="margin-top:0">🔐 Secure Access</h3>
+          <p class="small">JWT-protected login for warehouse staff on every endpoint.</p>
+        </div>
+        <div class="card card-good">
+          <h3 style="margin-top:0">🤖 Auto-Assignment</h3>
+          <p class="small">Idle AGV picks the next order automatically — no human in the loop.</p>
+        </div>
+        <div class="card card-good">
+          <h3 style="margin-top:0">📊 Real-Time Tracking</h3>
+          <p class="small">Live status updates + complete audit log of every action.</p>
+        </div>
+      </div>
+
+      <aside class="notes">
+        In one sentence: a user creates an order, a robot picks it up, delivers it, and everything is logged — automatically. No phone calls, no spreadsheets, no manual juggling.
+      </aside>
+    </section>
+
+    <!-- ============ SLIDE 4 — ARCHITECTURE ============ -->
+    <section class="bg-dark">
+      <h2>🏗️ Architecture</h2>
+      <h3>Three layers + one simulator</h3>
+
+      <div class="arch">
+        <div class="arch-box arch-frontend">
+          React Web
+          <span class="label">Frontend</span>
+        </div>
+        <div class="arch-arrow">⇄</div>
+        <div class="arch-box arch-backend">
+          FastAPI
+          <span class="label">Backend</span>
+        </div>
+        <div class="arch-arrow">⇄</div>
+        <div class="arch-box arch-db">
+          SQLite
+          <span class="label">Database</span>
+        </div>
+      </div>
+
+      <div class="arch-box arch-sim">
+        ⚙ Background AGV Simulator <span class="label">(async lifespan task)</span>
+      </div>
+
+      <div class="grid-3 mt">
+        <div class="card">
+          <h3 style="margin-top:0; color:#67e8f9">Frontend</h3>
+          <p class="small">What the user sees and interacts with</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0; color:#93c5fd">Backend</h3>
+          <p class="small">The brain — rules, validation, APIs</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0; color:#c4b5fd">Database</h3>
+          <p class="small">Persistent memory of everything</p>
+        </div>
+      </div>
+
+      <aside class="notes">
+        Standard 3-tier architecture: React talks to FastAPI, which reads and writes to SQLite. The bonus piece is the AGV simulator — a background async task that runs continuously, mimicking real robots picking up jobs and delivering them. To non-technical folks: frontend is what you see, backend is the brain, database is the memory, and the simulator is the robot's hands.
+      </aside>
+    </section>
+
+    <!-- ============ SLIDE 5 — TECH STACK ============ -->
+    <section class="bg-dark">
+      <h2>⚙️ Tech Stack</h2>
+
+      <div class="grid-2 mt">
+        <div class="card card-accent">
+          <h3 style="margin-top:0">Backend</h3>
+          <ul>
+            <li><b>FastAPI</b> — modern async Python web framework</li>
+            <li><b>SQLAlchemy</b> — ORM for clean DB access</li>
+            <li><b>SQLite</b> — embedded persistent storage</li>
+            <li><b>JWT</b> — secure token-based auth</li>
+            <li><b>Pydantic</b> — input validation</li>
+          </ul>
+        </div>
+        <div class="card card-accent">
+          <h3 style="margin-top:0">Frontend</h3>
+          <ul>
+            <li><b>React 18</b> — component-based UI</li>
+            <li><b>TypeScript</b> — type safety end-to-end</li>
+            <li><b>Vite</b> — lightning-fast dev server</li>
+            <li><b>Context API</b> — auth state management</li>
+            <li><b>Fetch + custom client</b> — typed API calls</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="quote mt">
+        Why this stack? Fast to build, type-safe, production-ready.
+      </div>
+
+      <aside class="notes">
+        FastAPI gave me automatic Swagger docs and async support out of the box. React with TypeScript caught bugs at compile time before they ever shipped. SQLite kept the setup simple — and it can swap to PostgreSQL with one line change.
+      </aside>
+    </section>
+
+    <!-- ============ SLIDE 6 — ENTITIES ============ -->
+    <section class="bg-dark">
+      <h2>🗂️ Core Entities</h2>
+      <h3>Six entities model the entire warehouse</h3>
+
+      <table>
+        <thead>
+          <tr><th>Entity</th><th>Purpose</th><th>Operations</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>📦 <b>Product</b></td><td>Items stored in the warehouse</td><td>Full CRUD</td></tr>
+          <tr><td>📋 <b>Order</b></td><td>Customer requests with priority levels</td><td>Create / Cancel / Confirm</td></tr>
+          <tr><td>📍 <b>Zone</b></td><td>Source &amp; destination locations</td><td>Full CRUD</td></tr>
+          <tr><td>🤖 <b>AGV</b></td><td>Automated guided vehicles</td><td>Status &amp; assignment</td></tr>
+          <tr><td>👤 <b>User</b></td><td>Authenticated staff</td><td>Login / Auth</td></tr>
+          <tr><td>📜 <b>SystemLog</b></td><td>Complete audit trail</td><td>Read-only history</td></tr>
+        </tbody>
+      </table>
+
+      <aside class="notes">
+        These six entities form the data model. Each has its own routes, controllers, and schemas in the backend, and a corresponding page in the React frontend.
+      </aside>
+    </section>
+
+    <!-- ============ SLIDE 7 — ORDER LIFECYCLE ============ -->
+    <section class="bg-blue">
+      <h2>🔄 Order Lifecycle</h2>
+      <h3>From click → delivery, fully automated</h3>
+
+      <div class="lifecycle">
+        <span class="pill pill-1">pending</span>
+        <span class="pill-arr">→</span>
+        <span class="pill pill-2">validated</span>
+        <span class="pill-arr">→</span>
+        <span class="pill pill-3">assigned</span>
+        <span class="pill-arr">→</span>
+        <span class="pill pill-4">in-transit</span>
+        <span class="pill-arr">→</span>
+        <span class="pill pill-5">delivered</span>
+      </div>
+
+      <div class="grid-2 mt">
+        <div class="card">
+          <h3 style="margin-top:0">User actions</h3>
+          <ol>
+            <li>Create order with priority</li>
+            <li>Pick destination zone</li>
+            <li>Submit</li>
+          </ol>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">System actions <span style="color:#fbbf24">(automatic)</span></h3>
+          <ol>
+            <li>Validate &amp; persist</li>
+            <li>Find idle AGV</li>
+            <li>Pick → Deliver → Log</li>
+          </ol>
+        </div>
+      </div>
+
+      <aside class="notes">
+        This is the loop I'll demo next. Notice the user only does the first three steps. Steps 4 to 6 — assignment, delivery, status updates — are 100% automated by the system.
+      </aside>
+    </section>
+
+    <!-- ============ SLIDE 8 — LIVE DEMO ============ -->
+    <section class="bg-dark">
+      <h2>🎬 Live Demo Time</h2>
+
+      <div class="demo-banner">
+        <div style="font-size:1.5em; margin-bottom:20px">
+          <span class="pulse"></span> <b>LIVE</b>
+        </div>
+        <div style="font-size:0.9em; line-height:1.8">
+          1️⃣ &nbsp; Login → Dashboard<br/>
+          2️⃣ &nbsp; Create &amp; edit a Product<br/>
+          3️⃣ &nbsp; Show Zones (source vs destination)<br/>
+          4️⃣ &nbsp; Create an Order with priority<br/>
+          5️⃣ &nbsp; Watch AGV auto-pick &amp; deliver<br/>
+          6️⃣ &nbsp; Open Logs — full audit trail<br/>
+          7️⃣ &nbsp; <i>Bonus:</i> Swagger UI at <code>/docs</code>
+        </div>
+      </div>
+
+      <p class="center small mt">⏱ Time: 5–7 minutes &nbsp;·&nbsp; Switch to browser now</p>
+
+      <aside class="notes">
+        Switch to the browser. Demo for 5–7 minutes. Walk through the order lifecycle in real time. Don't keep clicking — leave the audience wanting a little more. Come back to the next slide when done.
+      </aside>
+    </section>
+
+    <!-- ============ SLIDE 9 — KEY METRICS ============ -->
+    <section class="bg-gradient">
+      <h2>📊 By the Numbers</h2>
+
+      <div class="grid-3 mt">
+        <div class="stat">
+          <div class="num">6</div>
+          <div class="lbl">Core Entities</div>
+        </div>
+        <div class="stat">
+          <div class="num">25+</div>
+          <div class="lbl">REST Endpoints</div>
+        </div>
+        <div class="stat">
+          <div class="num">7</div>
+          <div class="lbl">React Pages</div>
+        </div>
+        <div class="stat">
+          <div class="num">100%</div>
+          <div class="lbl">Type-Safe</div>
+        </div>
+        <div class="stat">
+          <div class="num">JWT</div>
+          <div class="lbl">Auth Secured</div>
+        </div>
+        <div class="stat">
+          <div class="num">∞</div>
+          <div class="lbl">Audit Logged</div>
+        </div>
+      </div>
+
+      <aside class="notes">
+        Six entities, twenty-five-plus endpoints, seven React pages — all type-safe end-to-end. Every action is logged. Every endpoint is JWT-protected.
+      </aside>
+    </section>
+
+    <!-- ============ SLIDE 10 — CHALLENGES ============ -->
+    <section class="bg-dark">
+      <h2>🧩 Challenges &amp; Learnings</h2>
+
+      <div class="grid-2 mt">
+        <div class="card card-warn">
+          <h3 style="margin-top:0">Async background simulator</h3>
+          <p class="small">Running a continuous task without blocking the API. Solved with FastAPI's <code>lifespan</code> handler.</p>
+        </div>
+        <div class="card card-warn">
+          <h3 style="margin-top:0">Entity relationships</h3>
+          <p class="small">Modeling Orders ↔ AGVs ↔ Zones cleanly so each can be queried independently.</p>
+        </div>
+        <div class="card card-warn">
+          <h3 style="margin-top:0">End-to-end auth</h3>
+          <p class="small">JWT generation on backend, secure storage and refresh on React side via Context.</p>
+        </div>
+        <div class="card card-warn">
+          <h3 style="margin-top:0">Layered error handling</h3>
+          <p class="small">Validation at schema layer, business rules at service, global handler for the unexpected.</p>
+        </div>
+      </div>
+
+      <aside class="notes">
+        The trickiest part was the AGV simulator — making it run continuously without freezing the API. FastAPI's async lifespan handler solved it cleanly. The second was getting auth right end-to-end, especially handling token expiry on the React side.
+      </aside>
+    </section>
+
+    <!-- ============ SLIDE 11 — WHAT'S NEXT ============ -->
+    <section class="bg-blue">
+      <h2>🚀 What's Next</h2>
+      <h3>Production-ready foundation</h3>
+
+      <div class="grid-3 mt">
+        <div class="card">
+          <h3 style="margin-top:0">🗄️ Scale</h3>
+          <p class="small">Swap SQLite → <b>PostgreSQL</b> with one config change.</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">🤖 Real Robots</h3>
+          <p class="small">Replace simulator with actual <b>AGV vendor APIs</b>.</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">📈 Reporting</h3>
+          <p class="small">Add <b>analytics</b>, charts, mobile-friendly views.</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">☁️ Deploy</h3>
+          <p class="small">Containerize with <b>Docker</b>, deploy to cloud.</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">🔔 Notifications</h3>
+          <p class="small">WebSocket-based <b>live updates</b> &amp; alerts.</p>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0">🧪 Tests</h3>
+          <p class="small">Add <b>unit + integration</b> coverage with pytest.</p>
+        </div>
+      </div>
+
+      <aside class="notes">
+        The architecture is ready for production. To deploy real-world, you'd swap the simulator for actual AGV vendor APIs and SQLite for Postgres — both are one-line changes. Beyond that, real-time WebSocket notifications and analytics are natural next steps.
+      </aside>
+    </section>
+
+    <!-- ============ SLIDE 12 — THANK YOU ============ -->
+    <section class="bg-gradient title-slide">
+      <h1>Thank You</h1>
+      <div class="tagline">Questions?</div>
+
+      <div class="quote" style="font-size:1.2em; margin-top:50px; max-width:800px; margin-left:auto; margin-right:auto;">
+        "From a user creating an order to a robot delivering it<br/>— the entire loop is automated."
+      </div>
+
+      <div class="grid-3" style="margin-top:60px; gap:20px;">
+        <div class="card">
+          <div class="small">Backend</div>
+          <code style="font-size:0.8em">localhost:8000</code>
+        </div>
+        <div class="card">
+          <div class="small">API Docs</div>
+          <code style="font-size:0.8em">localhost:8000/docs</code>
+        </div>
+        <div class="card">
+          <div class="small">Frontend</div>
+          <code style="font-size:0.8em">localhost:5173</code>
+        </div>
+      </div>
+
+      <div class="badge mt">Built with ❤️ — FastAPI · React · TypeScript</div>
+
+      <aside class="notes">
+        Thank you. Happy to take questions. Likely questions: scalability (yes, swap DB), security (JWT on every endpoint), what if two orders need the same AGV (queue + FCFS per AGV).
+      </aside>
+    </section>
+
+  </div>
+</div>
+
+<!-- Reveal.js scripts -->
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+
+<script>
+  Reveal.initialize({
+    hash: true,
+    transition: 'slide',
+    controls: true,
+    progress: true,
+    slideNumber: 'c/t',
+    plugins: [ RevealNotes, RevealHighlight ],
+    keyboard: true,
+    overview: true,
+    touch: true,
+  });
+</script>
+
+</body>
+</html>

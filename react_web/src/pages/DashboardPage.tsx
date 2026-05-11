@@ -17,7 +17,7 @@ import Inventory2Icon from "@mui/icons-material/Inventory2";
 import PinDropIcon from "@mui/icons-material/PinDrop";
 import PageHeader from "../components/PageHeader";
 import StatusChip from "../components/StatusChip";
-import { listOrders } from "../api/orders";
+import { getOrdersQueue, listOrders } from "../api/orders";
 import { listAGVs } from "../api/agvs";
 import { listProducts } from "../api/products";
 import { listZones } from "../api/zones";
@@ -74,6 +74,11 @@ export default function DashboardPage() {
     queryFn: listOrders,
     refetchInterval: 5000,
   });
+  const queueQuery = useQuery({
+    queryKey: ["orders", "queue"],
+    queryFn: getOrdersQueue,
+    refetchInterval: 5000,
+  });
   const agvsQuery = useQuery({
     queryKey: ["agvs"],
     queryFn: listAGVs,
@@ -94,16 +99,27 @@ export default function DashboardPage() {
   const products = productsQuery.data ?? [];
   const zones = zonesQuery.data ?? [];
 
-  const statusCounts: Record<OrderStatus, number> = {
-    pending: 0,
-    assigned: 0,
-    delivering: 0,
-    done: 0,
-    cancelled: 0,
-  };
+  const allStatuses: OrderStatus[] = [
+    "pending",
+    "validated",
+    "assigned",
+    "in_transit",
+    "delivered",
+    "cancelled",
+    "failed",
+  ];
+  const statusCounts: Record<OrderStatus, number> = Object.fromEntries(
+    allStatuses.map((s) => [s, 0])
+  ) as Record<OrderStatus, number>;
   for (const order of orders) {
-    statusCounts[order.status] = (statusCounts[order.status] ?? 0) + 1;
+    const s = order.status as OrderStatus;
+    if (s in statusCounts) statusCounts[s] += 1;
   }
+  const activePipeline =
+    statusCounts.pending +
+    statusCounts.validated +
+    statusCounts.assigned +
+    statusCounts.in_transit;
 
   const idleAgvs = agvs.filter((a) => a.status === "idle").length;
   const busyAgvs = agvs.filter((a) => a.status === "busy").length;
@@ -134,7 +150,7 @@ export default function DashboardPage() {
             icon={<ListAltIcon />}
             label="Total Orders"
             value={orders.length}
-            hint={`${statusCounts.pending + statusCounts.assigned + statusCounts.delivering} active`}
+            hint={`${activePipeline} in pipeline · ${queueQuery.data?.validated_orders_waiting ?? "—"} queued / ${queueQuery.data?.idle_agvs ?? "—"} idle AGVs`}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -175,9 +191,7 @@ export default function DashboardPage() {
                 Orders by Status
               </Typography>
               <Stack spacing={1.2}>
-                {(
-                  ["pending", "assigned", "delivering", "done", "cancelled"] as OrderStatus[]
-                ).map((s) => (
+                {allStatuses.map((s) => (
                   <Stack
                     key={s}
                     direction="row"

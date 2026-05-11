@@ -12,7 +12,7 @@ class OrderModel(Base):
     order_name = Column(String, nullable=False)
     product = Column(String, nullable=False)
     qty = Column(Integer, nullable=False)
-    status = Column(String, nullable=False, default="pending")
+    status = Column(String, nullable=False, default="validated")
     agv = Column(String, nullable=True)
     priority = Column(Integer, nullable=False, default=3)
     from_location = Column(String, nullable=False)
